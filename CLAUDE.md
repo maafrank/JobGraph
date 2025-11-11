@@ -286,6 +286,21 @@ The frontend handles field name conversion between backend (snake_case) and disp
    - Work experience: job title, company, start/end dates, current position flag, description (modal form)
    - All operations use proper field name mapping and auto-refresh profile after updates
 
+2. **SkillsPage** (`/candidate/skills`) - Complete CRUD for manual skill scores:
+   - Two-tab interface: "My Skills" (manage existing) and "Browse Skills" (discover new)
+   - Browse tab: category dropdown filter (all, programming, data_science, cloud, ai, finance) + search by name
+   - Skills displayed with category badges and descriptions
+   - Add skill: modal with 0-100 slider, visual score feedback, proficiency labels (Beginner/Intermediate/Advanced/Expert)
+   - Score color coding: red (0-39), yellow (40-59), blue (60-79), green (80-100)
+   - Score guidelines shown in modal: 0-39: Beginner, 40-59: Intermediate, 60-79: Advanced, 80-100: Expert
+   - Edit skill: same modal for updating scores
+   - Delete skill: confirmation prompt before removal
+   - Duplicate prevention: shows info toast if skill already added, suggests editing from My Skills tab
+   - Displays acquired_at and expires_at dates (1 year expiry for manual entries)
+   - Empty state with CTA to browse skills
+   - Backend consistency: Skills Service returns snake_case (skill_id, skill_name, created_at)
+   - All CRUD operations use profileService for user_skill_scores table (interview_id = NULL for manual entries)
+
 ### Matching Algorithm
 
 The core algorithm calculates job match scores:
@@ -331,6 +346,16 @@ cd backend && npm test
 ```
 
 ### Common Commands
+
+**Development Services Manager** (Recommended):
+```bash
+# From project root directory
+./dev-services.sh              # Start all services (5 backend + 1 frontend)
+                               # Checks Docker, builds common package, starts all services
+                               # Monitors all processes, shows status
+                               # Press Ctrl+C to gracefully stop everything
+                               # Logs available at /tmp/jobgraph-*.log
+```
 
 **Backend Development**:
 ```bash

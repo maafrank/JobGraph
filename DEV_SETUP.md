@@ -49,6 +49,44 @@ cd backend/common
 npm run build
 ```
 
+## Easy Service Management (Recommended)
+
+We provide a simple script to run all development services at once:
+
+```bash
+# Start all services and monitor them
+./dev-services.sh
+
+# Press Ctrl+C when you're done - it will automatically stop everything
+```
+
+That's it! The script will:
+- ✓ Check Docker is running
+- ✓ Build the common package automatically
+- ✓ Clean up any existing processes on the ports
+- ✓ Start all 5 backend services (Auth, Profile, Job, Skills, Matching)
+- ✓ Start the frontend development server
+- ✓ Show color-coded status for each service
+- ✓ Monitor all services (restart if any crash)
+- ✓ Save logs to `/tmp/jobgraph-*.log`
+- ✓ Gracefully shut down all services when you press Ctrl+C
+
+**Services and Ports:**
+- Frontend: http://localhost:5173
+- Auth Service: http://localhost:3000/api/v1
+- Profile Service: http://localhost:3001/api/v1
+- Job Service: http://localhost:3002/api/v1
+- Skills Service: http://localhost:3003/api/v1
+- Matching Service: http://localhost:3004/api/v1
+
+**Viewing Logs:**
+While services are running, you can check logs in another terminal:
+```bash
+tail -f /tmp/jobgraph-auth.log
+tail -f /tmp/jobgraph-frontend.log
+# etc.
+```
+
 ### 6. Start Development Servers
 
 ```bash

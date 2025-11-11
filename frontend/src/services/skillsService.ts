@@ -1,5 +1,5 @@
-import { skillsApi } from './api';
-import type { ApiResponse, Skill, PaginatedResponse } from '../types';
+import { skillApi } from './api';
+import type { ApiResponse, Skill } from '../types';
 
 export interface SkillsQueryParams {
   page?: number;
@@ -11,7 +11,7 @@ export interface SkillsQueryParams {
 
 export const skillsService = {
   // Get all skills with pagination and filters
-  getSkills: async (params?: SkillsQueryParams): Promise<PaginatedResponse<Skill>> => {
+  getSkills: async (params?: SkillsQueryParams): Promise<{ skills: Skill[]; pagination?: any }> => {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.append('page', params.page.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
@@ -19,25 +19,25 @@ export const skillsService = {
     if (params?.search) queryParams.append('search', params.search);
     if (params?.active !== undefined) queryParams.append('active', params.active.toString());
 
-    const response = await skillsApi.get<ApiResponse<Skill[]>>(
+    const response = await skillApi.get<ApiResponse<Skill[]>>(
       `/skills?${queryParams.toString()}`
     );
 
     return {
-      data: response.data.data!,
+      skills: response.data.data!,
       pagination: response.data.pagination,
     };
   },
 
   // Get skill by ID
   getSkillById: async (id: string): Promise<Skill> => {
-    const response = await skillsApi.get<ApiResponse<Skill>>(`/skills/${id}`);
+    const response = await skillApi.get<ApiResponse<Skill>>(`/skills/${id}`);
     return response.data.data!;
   },
 
   // Get all skill categories
   getCategories: async (): Promise<string[]> => {
-    const response = await skillsApi.get<ApiResponse<string[]>>('/skills/categories');
+    const response = await skillApi.get<ApiResponse<string[]>>('/skills/categories');
     return response.data.data!;
   },
 };

@@ -12,6 +12,7 @@ import { LoginPage } from './pages/auth/LoginPage';
 import { RegisterPage } from './pages/auth/RegisterPage';
 import { CandidateDashboard } from './pages/candidate/CandidateDashboard';
 import { ProfilePage } from './pages/candidate/ProfilePage';
+import { SkillsPage } from './pages/candidate/SkillsPage';
 import { EmployerDashboard } from './pages/employer/EmployerDashboard';
 
 // Create a client for React Query
@@ -67,7 +68,7 @@ function App() {
             path="/candidate/skills"
             element={
               <ProtectedRoute requiredRole="candidate">
-                <div>Skills page coming soon...</div>
+                <SkillsPage />
               </ProtectedRoute>
             }
           />

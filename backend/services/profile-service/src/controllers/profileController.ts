@@ -485,16 +485,16 @@ export async function getCandidateSkills(req: Request, res: Response): Promise<v
     res.status(200).json(
       successResponse(
         result.rows.map(row => ({
-          userSkillId: row.user_skill_id,
-          userId: row.user_id,
-          skillId: row.skill_id,
-          skillName: row.skill_name,
+          user_skill_id: row.user_skill_id,
+          user_id: row.user_id,
+          skill_id: row.skill_id,
+          skill_name: row.skill_name,
           category: row.category,
           description: row.description,
           score: parseFloat(row.score),
           percentile: row.percentile ? parseFloat(row.percentile) : null,
-          createdAt: row.created_at,
-          expiresAt: row.expires_at,
+          acquired_at: row.created_at,
+          expires_at: row.expires_at,
         }))
       )
     );
@@ -584,14 +584,14 @@ export async function addCandidateSkill(req: Request, res: Response): Promise<vo
 
     res.status(201).json(
       successResponse({
-        userSkillId: skillScore.user_skill_id,
-        userId: skillScore.user_id,
-        skillId: skillScore.skill_id,
-        skillName: skillCheck.rows[0].name,
+        user_skill_id: skillScore.user_skill_id,
+        user_id: skillScore.user_id,
+        skill_id: skillScore.skill_id,
+        skill_name: skillCheck.rows[0].name,
         score: parseFloat(skillScore.score),
         percentile: skillScore.percentile ? parseFloat(skillScore.percentile) : null,
-        createdAt: skillScore.created_at,
-        expiresAt: skillScore.expires_at,
+        acquired_at: skillScore.created_at,
+        expires_at: skillScore.expires_at,
       })
     );
   } catch (error: any) {
@@ -671,14 +671,14 @@ export async function updateCandidateSkill(req: Request, res: Response): Promise
 
     res.status(200).json(
       successResponse({
-        userSkillId: skillScore.user_skill_id,
-        userId: skillScore.user_id,
-        skillId: skillScore.skill_id,
-        skillName: skillInfo.rows[0]?.name,
+        user_skill_id: skillScore.user_skill_id,
+        user_id: skillScore.user_id,
+        skill_id: skillScore.skill_id,
+        skill_name: skillInfo.rows[0]?.name,
         score: parseFloat(skillScore.score),
         percentile: skillScore.percentile ? parseFloat(skillScore.percentile) : null,
-        createdAt: skillScore.created_at,
-        expiresAt: skillScore.expires_at,
+        acquired_at: skillScore.created_at,
+        expires_at: skillScore.expires_at,
       })
     );
   } catch (error) {

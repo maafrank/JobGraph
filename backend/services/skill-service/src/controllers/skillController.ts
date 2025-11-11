@@ -62,12 +62,12 @@ export async function getSkills(req: Request, res: Response): Promise<void> {
 
     res.status(200).json(successResponse(
       result.rows.map(skill => ({
-        skillId: skill.skill_id,
-        name: skill.name,
+        skill_id: skill.skill_id,
+        skill_name: skill.name,
         category: skill.category,
         description: skill.description,
         active: skill.active,
-        createdAt: skill.created_at,
+        created_at: skill.created_at,
       })),
       {
         page,

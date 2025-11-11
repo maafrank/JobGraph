@@ -11,14 +11,15 @@
 - [x] Auth service structure (controllers, routes, middleware)
 - [x] User registration endpoint
 - [x] User login endpoint
-- [x] JWT token generation
+- [x] JWT token generation (15-minute access tokens)
 - [x] Password hashing with bcrypt
 - [x] Input validation (email, password, role)
 - [x] Protected routes with auth middleware
 - [x] GET /api/v1/auth/me endpoint
-- [ ] Refresh token support
-- [ ] Logout endpoint
-- [ ] Email verification (optional for MVP)
+- [x] Refresh token support (7-day refresh tokens)
+- [x] POST /api/v1/auth/refresh endpoint
+- [x] Logout endpoint (POST /api/v1/auth/logout)
+- [x] Email verification (POST /api/v1/auth/verify-email)
 
 ### 1.2 Testing
 - [x] Manual API testing with curl/test script
@@ -395,8 +396,8 @@ Once all Phase 1 items are complete, the MVP is ready for Phase 2, which will in
 ## Current Progress
 
 ✅ **Phase 0**: Complete - Foundation established
-✅ **1. Auth Service**: Core functionality complete (missing refresh tokens, logout, email verification)
-✅ **2. Profile Service**: Complete - Candidate profiles AND company profiles fully operational
+✅ **1. Auth Service**: FULLY COMPLETE - JWT auth with refresh tokens, logout, and email verification
+✅ **2. Profile Service**: FULLY COMPLETE - Candidate profiles AND company profiles fully operational
 ✅ **4. Skills Management**: Complete - Skills API and manual skill score management
 ✅ **5. Job Service**: Complete - Job posting and skills management
 ✅ **6. Matching Service**: Complete - Core matching algorithm with weighted scoring

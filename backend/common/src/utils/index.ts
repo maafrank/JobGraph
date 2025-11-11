@@ -1,10 +1,12 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { JwtPayload } from '../types';
 
 const SALT_ROUNDS = 10;
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
-const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '1h';
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '15m'; // Short-lived access token
+const REFRESH_TOKEN_EXPIRES_IN = process.env.REFRESH_TOKEN_EXPIRES_IN || '7d';
 
 // Password hashing
 export async function hashPassword(password: string): Promise<string> {
@@ -75,4 +77,40 @@ export function errorResponse(
       details,
     },
   };
+}
+
+// Refresh token utilities
+export function generateRefreshToken(): string {
+  return crypto.randomBytes(64).toString('hex');
+}
+
+export function getRefreshTokenExpiryDate(): Date {
+  const expiryMs = parseRefreshTokenExpiry(REFRESH_TOKEN_EXPIRES_IN);
+  return new Date(Date.now() + expiryMs);
+}
+
+function parseRefreshTokenExpiry(expiry: string): number {
+  // Parse strings like '7d', '24h', '60m'
+  const match = expiry.match(/^(\d+)([dhm])$/);
+  if (!match) return 7 * 24 * 60 * 60 * 1000; // Default 7 days
+
+  const value = parseInt(match[1]);
+  const unit = match[2];
+
+  switch (unit) {
+    case 'd': return value * 24 * 60 * 60 * 1000;
+    case 'h': return value * 60 * 60 * 1000;
+    case 'm': return value * 60 * 1000;
+    default: return 7 * 24 * 60 * 60 * 1000;
+  }
+}
+
+// Email verification token
+export function generateVerificationToken(): string {
+  return crypto.randomBytes(32).toString('hex');
+}
+
+export function getVerificationTokenExpiryDate(): Date {
+  // Verification tokens expire in 24 hours
+  return new Date(Date.now() + 24 * 60 * 60 * 1000);
 }

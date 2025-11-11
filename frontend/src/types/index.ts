@@ -83,17 +83,22 @@ export interface WorkExperience {
 
 // Company types
 export interface Company {
-  company_id: string;
-  company_name: string;
+  companyId: string;
+  name: string;
   description: string | null;
   industry: string | null;
-  company_size: string | null;
+  companySize: string | null;
   website: string | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  created_at: string;
-  updated_at: string;
+  location: {
+    city: string | null;
+    state: string | null;
+    country: string | null;
+  };
+  logoUrl?: string | null;
+  verified?: boolean;
+  userRole?: string;
+  createdAt: string;
+  updatedAt?: string;
 }
 
 // Skill types
@@ -220,10 +225,10 @@ export interface ProfileFormData {
 }
 
 export interface CompanyFormData {
-  company_name: string;
+  name: string;
   description: string;
   industry: string;
-  company_size: string;
+  companySize: string;
   website: string;
   city: string;
   state: string;

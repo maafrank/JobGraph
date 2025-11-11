@@ -15,6 +15,7 @@ import { ProfilePage } from './pages/candidate/ProfilePage';
 import { SkillsPage } from './pages/candidate/SkillsPage';
 import { JobMatchesPage } from './pages/candidate/JobMatchesPage';
 import { EmployerDashboard } from './pages/employer/EmployerDashboard';
+import { CompanyProfilePage } from './pages/employer/CompanyProfilePage';
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -95,7 +96,7 @@ function App() {
             path="/employer/company"
             element={
               <ProtectedRoute requiredRole="employer">
-                <div>Company page coming soon...</div>
+                <CompanyProfilePage />
               </ProtectedRoute>
             }
           />

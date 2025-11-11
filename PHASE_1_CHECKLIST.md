@@ -325,10 +325,10 @@
 
 ### 7.4 Employer Pages
 - [ ] Employer dashboard (company stats, recent jobs)
-- [ ] Company profile page
-  - [ ] Create company profile (first-time flow)
-  - [ ] View/Edit company details
-  - [ ] Company size, industry, website, location
+- [x] Company profile page ✅ COMPLETE
+  - [x] Create company profile (first-time flow)
+  - [x] View/Edit company details
+  - [x] Company size, industry, website, location
 - [ ] Job posting form
   - [ ] Job details (title, description, requirements)
   - [ ] Location, remote, salary range
@@ -504,15 +504,30 @@ Once all Phase 1 items are complete, the MVP is ready for Phase 2, which will in
   - Visual feedback and score guidelines
   - Duplicate prevention and expiry date display
   - Backend API field name consistency (snake_case)
+- ✅ **Job Matches Page** - Browse all jobs with calculated match scores (see 7.3)
+- ✅ **Company Profile Page** - Complete CRUD for employer company profiles
+  - First-time setup flow for employers without a company
+  - View/Edit mode toggle
+  - Company details: name, description, industry, size, website, location
+  - Auto-detect if user has company (404 = show create form)
+  - Industry dropdown (technology, finance, healthcare, education, etc.)
+  - Company size options (1-10, 11-50, 51-200, 201-500, 501-1000, 1001-5000, 5000+)
+  - Form validation with required fields
+  - Backend API returns camelCase with nested location object
+  - Frontend types updated to match backend format
 
 **Next Steps:**
 1. **Frontend Pages (Week 9-10)** - ← CURRENT
    - ✅ Profile Management Page (Complete)
    - ✅ Skills Management Page (Complete)
-   - Next: Candidate Dashboard (overview stats, quick actions)
-   - Then: Job Matches Page for candidates
-   - Then: Employer pages (Company Profile, Job Posting, Candidate Matches)
+   - ✅ Job Matches Page (Complete)
+   - ✅ Company Profile Page (Complete)
+   - Next: Job Posting Form - Create/edit jobs with skills and requirements
+   - Then: Job Management Page - List jobs, trigger matching, view stats
+   - Then: Candidate Matches Page - View ranked candidates for jobs
+   - Then: Candidate Dashboard (overview stats, quick actions)
+   - Then: Employer Dashboard (company stats, recent jobs)
 2. **Integration & Testing (Week 11)** - E2E tests and polish
 3. **Phase 2** - Interview System with AI-powered evaluation
 
-**Recommended**: Continue with **Candidate Dashboard** (section 7.3) - Overview page with stats and quick actions, or **Job Matches Page** to show candidates their matched jobs.
+**Recommended**: Continue with **Job Posting Form** (section 7.4) - Allow employers to create and edit job postings with required/optional skills, weights, and minimum thresholds.

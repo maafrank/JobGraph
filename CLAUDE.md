@@ -339,6 +339,19 @@ The frontend handles field name conversion between backend (snake_case) and disp
    - Displays job details: location, salary range, employment type, experience level, company info
    - Empty state when no jobs available or filters exclude all jobs
 
+4. **CompanyProfilePage** (`/employer/company`) - Complete CRUD for employer company profiles:
+   - First-time setup flow: auto-enables edit mode if employer has no company (404 detection)
+   - View/Edit mode toggle with seamless transitions
+   - Company details: name (required), description, industry, size, website, location (city, state, country)
+   - Industry dropdown: technology, finance, healthcare, education, retail, manufacturing, consulting, media, real estate, hospitality, other
+   - Company size options: 1-10, 11-50, 51-200, 201-500, 501-1000, 1001-5000, 5000+ employees
+   - Form validation with required field checks
+   - Success/error toast notifications
+   - Metadata display: created date and last updated timestamp
+   - Backend API returns camelCase format with nested location object (city, state, country)
+   - Frontend types updated to match: `Company` interface with `companyId`, `name`, `companySize`, `location: {city, state, country}`
+   - All CRUD operations via `companyService` using Profile Service API (port 3001)
+
 ### Enhanced Matching Algorithm
 
 The matching algorithm uses a **holistic scoring approach** that considers skills, profile factors, education, and work experience:
@@ -678,15 +691,16 @@ See [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) for complete details.
 
 **Phase 0**: Complete ✅ - Foundation established (Docker, PostgreSQL, Redis, Common package)
 
-**Phase 1 (Current)**: MVP Backend Complete ✅, Frontend Candidate Pages Complete ✅ - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
+**Phase 1 (Current)**: MVP Backend Complete ✅, Frontend Candidate Pages Complete ✅, Company Profile Complete ✅ - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
 - ✅ Auth Service (local auth with JWT) - `/api/v1/auth/*` on port 3000
-- ✅ Profile Service (CRUD operations + manual skill scores) - `/api/v1/profiles/*` on port 3001
+- ✅ Profile Service (CRUD operations + manual skill scores + company profiles) - `/api/v1/profiles/*` on port 3001
 - ✅ Job Service (posting and management) - `/api/v1/jobs/*` on port 3002
 - ✅ Skills Service (browsing and search) - `/api/v1/skills/*` on port 3003
 - ✅ Matching Service (enhanced holistic algorithm) - `/api/v1/matching/*` on port 3004
 - ✅ Frontend Authentication & Layout - Login, register, common components, protected routes
 - ✅ Frontend Candidate Pages - Profile, Skills, Job Matches (browse all jobs with match scores)
-- 🔄 Frontend Employer Pages - Company profile, job posting, candidate matches (next priority)
+- ✅ Company Profile Page - First-time setup flow, view/edit company details
+- 🔄 Frontend Employer Pages - Job posting, job management, candidate matches (next priority)
 
 **Phase 2**: Interview system with AI scoring
 **Phase 3**: Search, analytics, enhanced features

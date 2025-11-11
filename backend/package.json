@@ -1,0 +1,39 @@
+{
+  "name": "jobgraph-backend",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "services/*",
+    "common"
+  ],
+  "scripts": {
+    "dev:auth": "npm run dev --workspace=services/auth-service",
+    "dev:profile": "npm run dev --workspace=services/profile-service",
+    "dev:interview": "npm run dev --workspace=services/interview-service",
+    "dev:job": "npm run dev --workspace=services/job-service",
+    "dev:matching": "npm run dev --workspace=services/matching-service",
+    "dev:notification": "npm run dev --workspace=services/notification-service",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "lint": "eslint . --ext .ts",
+    "format": "prettier --write \"**/*.{ts,json,md}\"",
+    "migrate:up": "node-pg-migrate up",
+    "migrate:down": "node-pg-migrate down",
+    "migrate:create": "node-pg-migrate create"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.50.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.2.0",
+    "ts-node": "^10.9.0",
+    "nodemon": "^3.0.0",
+    "jest": "^29.7.0",
+    "@types/jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "node-pg-migrate": "^6.2.2"
+  }
+}

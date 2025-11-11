@@ -205,3 +205,40 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# JobGraph specific
+.env.local
+.env.*.local
+
+# Node.js dependencies
+node_modules/
+package-lock.json
+
+# Build outputs
+*.tsbuildinfo
+
+# Tests
+.nyc_output/
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+tmp/
+temp/
+
+# Frontend specific
+frontend/dist/
+frontend/.vite/

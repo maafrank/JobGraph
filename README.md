@@ -60,9 +60,18 @@ JobGraph is an intelligent job matching platform that revolutionizes hiring by f
 
 ## Documentation
 
+### Architecture & Design
 - [System Design](./SYSTEM_DESIGN.md) - Comprehensive system architecture and design
 - [Database Schema](./DATABASE_SCHEMA.sql) - Complete PostgreSQL schema
 - [AWS Infrastructure](./AWS_INFRASTRUCTURE.md) - AWS setup and deployment guide
+- [CLAUDE.md](./CLAUDE.md) - Development guidelines for Claude Code
+
+### Implementation Plans
+- [Execution Plan](./EXECUTION_PLAN.md) - High-level roadmap and phases overview
+- [Phase 0: Foundation](./PHASE_0_DETAILED_PLAN.md) - Development environment setup (Week 1-2)
+- [Phase 1: MVP](./PHASE_1_DETAILED_PLAN.md) - Core features and basic matching (Week 3-11)
+- [Phase 2: Interview System](./PHASE_2_DETAILED_PLAN.md) - AI-powered interviews and scoring (Week 12-18)
+- [Phase 3-5: Enhancement & Production](./PHASE_3_4_5_DETAILED_PLAN.md) - Search, analytics, AWS deployment, launch (Week 19-34+)
 
 ## Getting Started
 

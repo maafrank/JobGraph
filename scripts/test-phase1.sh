@@ -490,17 +490,17 @@ echo ""
 
 # Test 28: Add manual skill score to candidate profile
 echo "Test 28: Add skill score to candidate profile..."
-# Get a skill ID (Python)
-PYTHON_SKILL_ID=$(echo "$SKILLS_RESPONSE" | grep -o '"skillId":"[^"]*"' | head -1 | cut -d'"' -f4)
+# Get a skill ID - extract from the JSON response
+PYTHON_SKILL_ID=$(echo "$SKILLS_RESPONSE" | sed -n 's/.*"skillId":"\([^"]*\)".*/\1/p' | head -1)
 
-if [ -n "$PYTHON_SKILL_ID" ] && [ -n "$CANDIDATE_TOKEN" ]; then
+if [ -n "$PYTHON_SKILL_ID" ] && [ "$PYTHON_SKILL_ID" != "" ] && [ -n "$TOKEN" ]; then
   ADD_SKILL_RESPONSE=$(curl -s -X POST http://localhost:3001/api/v1/profiles/candidate/skills \
-    -H "Authorization: Bearer ${CANDIDATE_TOKEN}" \
+    -H "Authorization: Bearer ${TOKEN}" \
     -H "Content-Type: application/json" \
-    -d "{
-      \"skillId\": \"${PYTHON_SKILL_ID}\",
-      \"score\": 85
-    }" 2>/dev/null || echo "")
+    -d '{
+      "skillId": "'"${PYTHON_SKILL_ID}"'",
+      "score": 85
+    }' 2>/dev/null || echo "")
 
   if echo "$ADD_SKILL_RESPONSE" | grep -q "\"success\":true"; then
     test_result 0 "Add skill score successful"
@@ -510,19 +510,21 @@ if [ -n "$PYTHON_SKILL_ID" ] && [ -n "$CANDIDATE_TOKEN" ]; then
       test_result 0 "Add skill score successful (skill already exists)"
     else
       test_result 1 "Add skill score failed"
+      echo "  Response: $ADD_SKILL_RESPONSE" | head -c 200
     fi
   fi
 else
   test_result 1 "Cannot test add skill (missing skill ID or token)"
+  echo "  Skill ID: '$PYTHON_SKILL_ID', Token length: ${#TOKEN}"
 fi
 
 echo ""
 
 # Test 29: Get candidate's skill scores
 echo "Test 29: Get candidate's skill scores..."
-if [ -n "$CANDIDATE_TOKEN" ]; then
+if [ -n "$TOKEN" ]; then
   GET_SKILLS_RESPONSE=$(curl -s -X GET http://localhost:3001/api/v1/profiles/candidate/skills \
-    -H "Authorization: Bearer ${CANDIDATE_TOKEN}" 2>/dev/null || echo "")
+    -H "Authorization: Bearer ${TOKEN}" 2>/dev/null || echo "")
 
   if echo "$GET_SKILLS_RESPONSE" | grep -q "\"success\":true"; then
     test_result 0 "Get candidate skills successful"
@@ -539,9 +541,9 @@ echo ""
 
 # Test 30: Update skill score
 echo "Test 30: Update skill score..."
-if [ -n "$PYTHON_SKILL_ID" ] && [ -n "$CANDIDATE_TOKEN" ]; then
+if [ -n "$PYTHON_SKILL_ID" ] && [ "$PYTHON_SKILL_ID" != "" ] && [ -n "$TOKEN" ]; then
   UPDATE_SKILL_RESPONSE=$(curl -s -X PUT "http://localhost:3001/api/v1/profiles/candidate/skills/${PYTHON_SKILL_ID}" \
-    -H "Authorization: Bearer ${CANDIDATE_TOKEN}" \
+    -H "Authorization: Bearer ${TOKEN}" \
     -H "Content-Type: application/json" \
     -d '{"score": 92}' 2>/dev/null || echo "")
 
@@ -549,9 +551,11 @@ if [ -n "$PYTHON_SKILL_ID" ] && [ -n "$CANDIDATE_TOKEN" ]; then
     test_result 0 "Update skill score successful"
   else
     test_result 1 "Update skill score failed"
+    echo "  Response: $UPDATE_SKILL_RESPONSE" | head -c 200
   fi
 else
   test_result 1 "Cannot test update skill (missing skill ID or token)"
+  echo "  Skill ID: '$PYTHON_SKILL_ID', Token length: ${#TOKEN}"
 fi
 
 echo ""

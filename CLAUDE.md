@@ -122,11 +122,18 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - Supports pagination, filtering, and search for job listings
 
 **Matching Service** (Port 3004):
-- Core matching algorithm calculates weighted compatibility scores
+- **Enhanced holistic matching algorithm** calculates comprehensive compatibility scores
 - POST /api/v1/matching/jobs/:jobId/calculate - Calculate matches for a job
   - Finds candidates with ALL required skills
   - Checks minimum score thresholds
-  - Calculates weighted average: Σ(skill_score[i] × weight[i]) / Σ(weight[i])
+  - Calculates weighted skill average: Σ(skill_score[i] × weight[i]) / Σ(weight[i])
+  - Applies penalty for missing required skills (0/2 required = max 25%, 1/2 = max 50%)
+  - Adds bonus points for profile factors (up to 15 points):
+    - Experience level match (0-5 points)
+    - Location/remote preference (0-5 points)
+    - Education relevance (0-3 points)
+    - Work experience relevance (0-2 points)
+  - Final score: skill score + bonus points (capped at 100%)
   - Ranks candidates by overall score
   - Stores matches in `job_matches` table
 - GET /api/v1/matching/jobs/:jobId/candidates - Employer views ranked candidates
@@ -134,8 +141,14 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
   - Includes skill breakdown with individual scores
   - Shows overall match score and candidate details
 - GET /api/v1/matching/candidate/matches - Candidate views job matches
-  - Returns all jobs matched to the candidate
+  - Returns all jobs matched to the candidate (stored matches only)
   - Shows match score, rank, and job details
+- **GET /api/v1/matching/candidate/browse-jobs** - Browse ALL jobs with calculated scores
+  - Calculates match score for EVERY active job in real-time
+  - Shows partial matches even if missing required skills
+  - Includes qualification status (fully qualified vs partial)
+  - Returns required skills met count and total required skills
+  - Separates required vs optional skills in breakdown
 - POST /api/v1/matching/matches/:matchId/contact - Employer contacts candidate
   - Updates status to 'contacted'
   - Sets contacted_at timestamp
@@ -143,9 +156,13 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - PUT /api/v1/matching/matches/:matchId/status - Update match status
   - **IMPORTANT**: Valid statuses must match database constraint: `matched`, `viewed`, `contacted`, `shortlisted`, `rejected`, `hired`
   - Employer-only action
-- Algorithm enforces: candidates must have ALL required skills and meet minimum thresholds
-- Optional skills are included in scoring if candidate has them
+- Algorithm behavior:
+  - Missing required skills significantly lower match scores (penalty system)
+  - Optional skills add bonus points if candidate has them
+  - Profile factors (experience, location, education) provide up to 15% bonus
+  - Scores are more differentiated and realistic (not all clustering around 85%)
 - Database columns use `city`, `state` (not `location_city`, `location_state`)
+- Work experience table uses `title`, `company` (not `job_title`, `company_name`)
 
 ### Common Package API
 
@@ -301,22 +318,98 @@ The frontend handles field name conversion between backend (snake_case) and disp
    - Backend consistency: Skills Service returns snake_case (skill_id, skill_name, created_at)
    - All CRUD operations use profileService for user_skill_scores table (interview_id = NULL for manual entries)
 
-### Matching Algorithm
+3. **JobMatchesPage** (`/candidate/job-matches`) - Browse and view all job matches:
+   - Displays ALL active jobs with real-time calculated match scores (not just stored matches)
+   - Match score badge with color coding (green ≥80%, blue ≥60%, yellow ≥40%, red <40%)
+   - Qualification status: "✓ Fully Qualified" or "X/Y Required Skills Met"
+   - **Clear skill separation**: Required skills and Optional skills (Bonus) shown in separate sections
+   - Color-coded skill badges:
+     - Required skills: green (meets threshold), red (missing/below threshold)
+     - Optional skills: blue (have it), gray (don't have it)
+   - Filter options:
+     - Location type: All, Remote Only, On-site Only
+     - Qualification: All Jobs, Fully Qualified, Partial Match
+   - Sort options: Match Score (high to low), Recently Posted
+   - Job detail modal with comprehensive breakdown:
+     - Full job description
+     - Skill Match Breakdown section with Required and Optional skills separated
+     - Visual progress bars showing skill scores vs thresholds
+     - Skill weights displayed (e.g., "Weight: 40%")
+     - Status badges (Missing, Below Minimum, Optional, etc.)
+   - Displays job details: location, salary range, employment type, experience level, company info
+   - Empty state when no jobs available or filters exclude all jobs
 
-The core algorithm calculates job match scores:
+### Enhanced Matching Algorithm
+
+The matching algorithm uses a **holistic scoring approach** that considers skills, profile factors, education, and work experience:
 
 ```typescript
 function calculateJobMatchScore(userId: string, jobId: string) {
-    // Get user's skill scores from completed interviews
-    // For each required skill in job:
-    //   - Check user has completed interview (user_skill_scores)
-    //   - Verify user_score >= minimum_score (else disqualify)
-    //   - Apply skill weight to score
-    // Return weighted average: Σ(skill_score[i] × weight[i]) / Σ(weight[i])
+    // 1. Base Skill Score Calculation
+    // Calculate weighted average of candidate's skill scores
+    let skillScore = Σ(skill_score[i] × weight[i]) / Σ(weight[i])
+
+    // 2. Apply Penalty for Missing Required Skills
+    // This significantly reduces scores when requirements aren't met
+    requiredSkillsRatio = requiredSkillsMet / totalRequiredSkills
+    if (requiredSkillsMet < totalRequiredSkills) {
+        maxScore = requiredSkillsRatio × 50 + 25
+        // 0/2 required = max 25%, 1/2 required = max 50%, 2/2 required = no cap
+        skillScore = min(skillScore, maxScore)
+    }
+
+    // 3. Add Bonus Points for Profile Factors (max 15 points)
+    bonusPoints = 0
+
+    // Experience level match (0-5 points)
+    if (candidate.yearsExperience matches job.experienceLevel) {
+        bonusPoints += 5  // Perfect match
+    } else if (closeMatch) {
+        bonusPoints += 2  // Partial match
+    }
+
+    // Location/Remote preference (0-5 points)
+    if (job.remote && candidate.prefersRemote) {
+        bonusPoints += 5
+    } else if (sameCity || willingToRelocate) {
+        bonusPoints += 1-5  // Based on specifics
+    }
+
+    // Education relevance (0-3 points)
+    if (fieldOfStudy mentioned in job title/description) {
+        bonusPoints += 3
+    } else if (hasRelevantDegree) {
+        bonusPoints += 1
+    }
+
+    // Work experience relevance (0-2 points)
+    if (similar job titles in work history) {
+        bonusPoints += 2
+    }
+
+    // 4. Calculate Final Score
+    overallScore = min(skillScore + bonusPoints, 100)
+
+    return {
+        overallScore,
+        isFullyQualified: requiredSkillsMet === totalRequiredSkills,
+        requiredSkillsMet,
+        totalRequiredSkills,
+        skillBreakdown: [...]
+    }
 }
 ```
 
-**Critical constraint**: Users must have completed interviews for ALL required skills in a job to be matched. Optional skills can be missing.
+**Key Algorithm Features:**
+- **Penalty for missing required skills**: Jobs where you lack required skills show realistic low scores (25-50%)
+- **Holistic evaluation**: Not just skills - considers your entire profile
+- **Differentiated scores**: Jobs scored 30%, 50%, 75%, 95% instead of all clustering at 85%
+- **Optional skills**: Provide bonus points but don't penalize if missing
+- **Browse mode**: In the browse-jobs endpoint, ALL jobs are scored even if you're not fully qualified (unlike calculateJobMatches which only stores perfect matches)
+
+**Important Distinctions:**
+- `calculateJobMatches()` - Employer-triggered, stores only candidates who meet ALL required skills + thresholds
+- `browseJobsWithScores()` - Candidate-facing, scores ALL active jobs including partial matches for exploration
 
 ## Development Workflow
 
@@ -585,14 +678,15 @@ See [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) for complete details.
 
 **Phase 0**: Complete ✅ - Foundation established (Docker, PostgreSQL, Redis, Common package)
 
-**Phase 1 (Current)**: MVP Backend Complete ✅, Frontend In Progress 🔄 - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
+**Phase 1 (Current)**: MVP Backend Complete ✅, Frontend Candidate Pages Complete ✅ - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
 - ✅ Auth Service (local auth with JWT) - `/api/v1/auth/*` on port 3000
 - ✅ Profile Service (CRUD operations + manual skill scores) - `/api/v1/profiles/*` on port 3001
 - ✅ Job Service (posting and management) - `/api/v1/jobs/*` on port 3002
 - ✅ Skills Service (browsing and search) - `/api/v1/skills/*` on port 3003
-- ✅ Matching Service (weighted matching algorithm) - `/api/v1/matching/*` on port 3004
+- ✅ Matching Service (enhanced holistic algorithm) - `/api/v1/matching/*` on port 3004
 - ✅ Frontend Authentication & Layout - Login, register, common components, protected routes
-- 🔄 Frontend Feature Pages - Candidate/employer dashboards and feature pages
+- ✅ Frontend Candidate Pages - Profile, Skills, Job Matches (browse all jobs with match scores)
+- 🔄 Frontend Employer Pages - Company profile, job posting, candidate matches (next priority)
 
 **Phase 2**: Interview system with AI scoring
 **Phase 3**: Search, analytics, enhanced features

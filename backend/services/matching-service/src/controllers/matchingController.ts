@@ -496,3 +496,302 @@ export async function contactCandidate(req: Request, res: Response): Promise<voi
     );
   }
 }
+
+/**
+ * Browse all jobs with calculated match scores (Candidate view)
+ * Unlike getCandidateMatches which only shows stored matches from job_matches table,
+ * this endpoint calculates a score for EVERY active job, even partial matches
+ */
+export async function browseJobsWithScores(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+
+    // Get candidate's current skills with scores
+    const candidateSkillsResult = await query(
+      `SELECT uss.skill_id, s.name, uss.score
+       FROM user_skill_scores uss
+       JOIN skills s ON uss.skill_id = s.skill_id
+       WHERE uss.user_id = $1 AND uss.expires_at > NOW()`,
+      [userId]
+    );
+
+    const candidateSkills = candidateSkillsResult.rows;
+
+    if (candidateSkills.length === 0) {
+      res.status(200).json(
+        successResponse({
+          totalJobs: 0,
+          jobs: [],
+          message: 'Add skills to your profile to see job matches',
+        })
+      );
+      return;
+    }
+
+    // Create a map of candidate's skills for quick lookup
+    const candidateSkillMap = new Map();
+    candidateSkills.forEach(skill => {
+      candidateSkillMap.set(skill.skill_id, parseFloat(skill.score));
+    });
+
+    // Get all active jobs with their skill requirements
+    const jobsResult = await query(
+      `SELECT
+         j.job_id,
+         j.title,
+         j.description,
+         j.city,
+         j.state,
+         j.remote_option,
+         j.salary_min,
+         j.salary_max,
+         j.employment_type,
+         j.experience_level,
+         j.created_at,
+         c.company_id,
+         c.name as company_name,
+         c.industry,
+         ARRAY_AGG(
+           json_build_object(
+             'skill_id', js.skill_id,
+             'skill_name', s.name,
+             'weight', js.weight,
+             'minimum_score', js.minimum_score,
+             'required', js.required
+           )
+         ) as skills
+       FROM jobs j
+       JOIN companies c ON j.company_id = c.company_id
+       JOIN job_skills js ON j.job_id = js.job_id
+       JOIN skills s ON js.skill_id = s.skill_id
+       WHERE j.status = 'active'
+       GROUP BY j.job_id, j.title, j.description, j.city, j.state, j.remote_option,
+                j.salary_min, j.salary_max, j.employment_type, j.experience_level,
+                j.created_at, c.company_id, c.name, c.industry
+       ORDER BY j.created_at DESC`
+    );
+
+    const jobs = jobsResult.rows;
+
+    // Get candidate profile for additional matching factors
+    const profileResult = await query(
+      `SELECT
+         cp.years_experience,
+         cp.city,
+         cp.state,
+         cp.remote_preference,
+         cp.willing_to_relocate,
+         COALESCE(
+           (SELECT json_agg(json_build_object(
+             'degree', e.degree,
+             'field_of_study', e.field_of_study,
+             'graduation_year', e.graduation_year
+           ))
+           FROM education e WHERE e.profile_id = cp.profile_id),
+           '[]'::json
+         ) as education,
+         COALESCE(
+           (SELECT json_agg(json_build_object(
+             'title', we.title,
+             'company', we.company,
+             'years', EXTRACT(YEAR FROM AGE(
+               COALESCE(we.end_date, NOW()), we.start_date
+             ))
+           ))
+           FROM work_experience we WHERE we.profile_id = cp.profile_id),
+           '[]'::json
+         ) as work_experience
+       FROM candidate_profiles cp
+       WHERE cp.user_id = $1`,
+      [userId]
+    );
+
+    const profile = profileResult.rows[0] || {};
+
+    // Calculate match score for each job
+    const jobsWithScores = jobs.map(job => {
+      let totalWeightedScore = 0;
+      let totalWeight = 0;
+      let requiredSkillsMet = 0;
+      let totalRequiredSkills = 0;
+      const skillBreakdown = [];
+
+      for (const jobSkill of job.skills) {
+        const candidateScore = candidateSkillMap.get(jobSkill.skill_id) || 0;
+        const weight = parseFloat(jobSkill.weight);
+        const minimumScore = parseFloat(jobSkill.minimum_score);
+        const meetsThreshold = candidateScore >= minimumScore;
+
+        if (jobSkill.required) {
+          totalRequiredSkills++;
+          if (candidateScore > 0 && meetsThreshold) {
+            requiredSkillsMet++;
+          }
+        }
+
+        // Include skill in scoring if candidate has it (even if below threshold)
+        if (candidateScore > 0) {
+          totalWeightedScore += candidateScore * weight;
+          totalWeight += weight;
+        }
+
+        skillBreakdown.push({
+          skillId: jobSkill.skill_id,
+          skillName: jobSkill.skill_name,
+          required: jobSkill.required,
+          candidateScore: candidateScore,
+          minimumScore: minimumScore,
+          weight: weight,
+          meetsThreshold: meetsThreshold,
+        });
+      }
+
+      // Calculate base skill score (0 if no overlap)
+      let skillScore = totalWeight > 0 ? totalWeightedScore / totalWeight : 0;
+
+      // Apply penalty for missing required skills
+      // If you're missing required skills, reduce the score significantly
+      const requiredSkillsRatio = totalRequiredSkills > 0 ? requiredSkillsMet / totalRequiredSkills : 1;
+
+      // If missing any required skills, cap the score based on how many you're missing
+      // 0/2 required = max 25%, 1/2 required = max 50%, 2/2 required = no cap
+      if (requiredSkillsMet < totalRequiredSkills) {
+        const maxScore = requiredSkillsRatio * 50 + 25; // 0->25%, 0.5->50%, 1->75%+
+        skillScore = Math.min(skillScore, maxScore);
+      }
+
+      // Calculate additional factors (up to 15 bonus points)
+      let bonusPoints = 0;
+
+      // Experience match (0-5 points)
+      if (profile.years_experience && job.experience_level) {
+        const yearsExp = parseInt(profile.years_experience);
+        const expLevel = job.experience_level;
+
+        if (
+          (expLevel === 'entry' && yearsExp >= 0 && yearsExp <= 3) ||
+          (expLevel === 'mid' && yearsExp >= 2 && yearsExp <= 6) ||
+          (expLevel === 'senior' && yearsExp >= 5 && yearsExp <= 10) ||
+          (expLevel === 'lead' && yearsExp >= 8) ||
+          (expLevel === 'executive' && yearsExp >= 10)
+        ) {
+          bonusPoints += 5;
+        } else if (
+          (expLevel === 'entry' && yearsExp <= 5) ||
+          (expLevel === 'mid' && yearsExp >= 1 && yearsExp <= 8) ||
+          (expLevel === 'senior' && yearsExp >= 3)
+        ) {
+          bonusPoints += 2;
+        }
+      }
+
+      // Location match (0-5 points)
+      if (job.remote_option) {
+        // Remote job
+        if (profile.remote_preference === 'remote' || profile.remote_preference === 'flexible') {
+          bonusPoints += 5;
+        } else if (profile.remote_preference === 'hybrid') {
+          bonusPoints += 3;
+        }
+      } else if (job.city && job.state && profile.city && profile.state) {
+        // On-site job
+        if (job.city === profile.city && job.state === profile.state) {
+          bonusPoints += 5; // Same city
+        } else if (job.state === profile.state) {
+          if (profile.willing_to_relocate) {
+            bonusPoints += 3; // Same state, willing to relocate
+          } else {
+            bonusPoints += 1; // Same state but not willing to relocate
+          }
+        } else if (profile.willing_to_relocate) {
+          bonusPoints += 2; // Different state but willing to relocate
+        }
+      }
+
+      // Education relevance (0-3 points)
+      if (profile.education && Array.isArray(profile.education) && profile.education.length > 0) {
+        const hasRelevantDegree = profile.education.some((edu: any) => {
+          const field = (edu.field_of_study || '').toLowerCase();
+          const jobDesc = (job.description || '').toLowerCase();
+          const jobTitle = (job.title || '').toLowerCase();
+
+          // Check if field of study is mentioned in job title or description
+          return field.length > 3 && (jobDesc.includes(field) || jobTitle.includes(field));
+        });
+
+        if (hasRelevantDegree) {
+          bonusPoints += 3;
+        } else if (profile.education.some((e: any) => e.degree === 'bachelors' || e.degree === 'masters' || e.degree === 'phd')) {
+          bonusPoints += 1; // Has degree but not directly relevant
+        }
+      }
+
+      // Work experience relevance (0-2 points)
+      if (profile.work_experience && Array.isArray(profile.work_experience) && profile.work_experience.length > 0) {
+        const hasRelevantExperience = profile.work_experience.some((exp: any) => {
+          const title = (exp.title || '').toLowerCase();
+          const jobTitle = (job.title || '').toLowerCase();
+
+          // Check for similar job titles or keywords
+          const keywords = jobTitle.split(' ').filter((w: string) => w.length > 3);
+          return keywords.some((keyword: string) => title.includes(keyword));
+        });
+
+        if (hasRelevantExperience) {
+          bonusPoints += 2;
+        }
+      }
+
+      // Calculate final overall score: skill score (max 100) + bonus points (max 15)
+      // Then normalize back to 0-100 scale
+      const rawScore = skillScore + bonusPoints;
+      const overallScore = Math.min(rawScore, 100);
+
+      // Determine qualification status
+      const isFullyQualified = requiredSkillsMet === totalRequiredSkills && totalRequiredSkills > 0;
+
+      return {
+        jobId: job.job_id,
+        jobTitle: job.title,
+        jobDescription: job.description,
+        location: {
+          city: job.city,
+          state: job.state,
+        },
+        remoteOption: job.remote_option,
+        salary: {
+          min: job.salary_min,
+          max: job.salary_max,
+        },
+        employmentType: job.employment_type,
+        experienceLevel: job.experience_level,
+        company: {
+          companyId: job.company_id,
+          name: job.company_name,
+          industry: job.industry,
+        },
+        overallScore: overallScore,
+        isFullyQualified: isFullyQualified,
+        requiredSkillsMet: requiredSkillsMet,
+        totalRequiredSkills: totalRequiredSkills,
+        skillBreakdown: skillBreakdown,
+        postedAt: job.created_at,
+      };
+    });
+
+    // Sort by overall score (descending)
+    jobsWithScores.sort((a, b) => b.overallScore - a.overallScore);
+
+    res.status(200).json(
+      successResponse({
+        totalJobs: jobsWithScores.length,
+        jobs: jobsWithScores,
+      })
+    );
+  } catch (error: any) {
+    console.error('Browse jobs with scores error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred browsing jobs')
+    );
+  }
+}

@@ -3,6 +3,7 @@ import {
   calculateJobMatches,
   getJobCandidates,
   getCandidateMatches,
+  browseJobsWithScores,
   updateMatchStatus,
   contactCandidate,
 } from '../controllers/matchingController';
@@ -29,10 +30,17 @@ router.get('/jobs/:jobId/candidates', requireRole('employer'), getJobCandidates)
 
 /**
  * @route   GET /api/v1/matching/candidate/matches
- * @desc    Get job matches for the authenticated candidate
+ * @desc    Get job matches for the authenticated candidate (stored matches only)
  * @access  Private (Candidate only)
  */
 router.get('/candidate/matches', requireRole('candidate'), getCandidateMatches);
+
+/**
+ * @route   GET /api/v1/matching/candidate/browse-jobs
+ * @desc    Browse ALL jobs with calculated match scores (including partial matches)
+ * @access  Private (Candidate only)
+ */
+router.get('/candidate/browse-jobs', requireRole('candidate'), browseJobsWithScores);
 
 /**
  * @route   PUT /api/v1/matching/matches/:matchId/status

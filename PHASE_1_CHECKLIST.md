@@ -200,7 +200,7 @@
 
 ## 6. Matching Service (Week 8) ✅ COMPLETE
 
-### 6.1 Basic Matching Algorithm
+### 6.1 Enhanced Matching Algorithm
 - [x] Matching service structure
 - [x] calculateJobMatches(jobId) function
   - [x] Get job with required skills
@@ -210,6 +210,14 @@
   - [x] Rank candidates by score
 - [x] Store matches in job_matches table
 - [x] POST /api/v1/matching/jobs/:jobId/calculate - Trigger matching
+- [x] **Enhanced matching algorithm with holistic scoring**
+  - [x] Base skill score with weighted averages
+  - [x] Penalty for missing required skills (0/2 = max 25%, 1/2 = max 50%)
+  - [x] Experience level matching bonus (0-5 points)
+  - [x] Location/remote preference bonus (0-5 points)
+  - [x] Education relevance bonus (0-3 points)
+  - [x] Work experience relevance bonus (0-2 points)
+  - [x] Final score normalized to 0-100% scale
 
 ### 6.2 Match Retrieval
 - [x] GET /api/v1/matching/jobs/:jobId/candidates - Employer: View matches
@@ -219,6 +227,11 @@
 - [x] GET /api/v1/matching/candidate/matches - Candidate: View job matches
   - [x] Returns jobs matched to user
   - [x] Show match score and rank
+- [x] GET /api/v1/matching/candidate/browse-jobs - Browse ALL jobs with scores
+  - [x] Calculate match score for every active job
+  - [x] Include partial matches (even if missing required skills)
+  - [x] Show required vs optional skills clearly
+  - [x] Filter and sort capabilities
 
 ### 6.3 Match Status Management
 - [x] PUT /api/v1/matching/matches/:matchId/status - Update match status
@@ -232,6 +245,7 @@
 - [x] Test minimum threshold enforcement
 - [x] Test weighted scoring
 - [x] Test match ranking
+- [x] Test enhanced scoring factors (experience, location, education, work history)
 - [x] Integrated into test-phase1.sh (Tests 31-36)
 
 ---
@@ -297,11 +311,17 @@
   - [x] Backend API using snake_case field names (skill_id, skill_name, created_at)
   - [x] Modal for add/edit with score slider
   - [x] Empty state with call-to-action
-- [ ] Job matches page
-  - [ ] View matched jobs (sorted by match score)
-  - [ ] See match score, rank, and job details
-  - [ ] Filter by location, remote, etc.
-  - [ ] Job detail modal/page
+- [x] Job matches page ✅ COMPLETE
+  - [x] View ALL jobs with calculated match scores (sorted by score)
+  - [x] See match score, qualification status, and job details
+  - [x] Clear separation of Required vs Optional skills
+  - [x] Color-coded skill badges (green=meets threshold, red=missing/below, blue=optional)
+  - [x] Filter by location type (all, remote only, on-site only)
+  - [x] Filter by qualification (all, fully qualified, partial match)
+  - [x] Sort by match score or date posted
+  - [x] Job detail modal with complete skill breakdown
+  - [x] Visual progress bars for skill scores
+  - [x] Shows skill weights and minimum thresholds
 
 ### 7.4 Employer Pages
 - [ ] Employer dashboard (company stats, recent jobs)

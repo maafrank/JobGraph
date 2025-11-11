@@ -203,8 +203,8 @@ npm run test:watch                 # Watch mode
 npm run test:coverage              # Generate coverage report
 
 # API Integration Tests (must have Docker services and auth/profile services running)
-./test-auth-api.sh                 # Test Auth Service (9 tests)
-./test-profile-api.sh              # Test Profile Service (14 tests)
+./scripts/test-auth-api.sh         # Test Auth Service (9 tests)
+./scripts/test-profile-api.sh      # Test Profile Service (14 tests)
 
 # Phase Test Suites
 ./scripts/test-phase0.sh           # Verify Phase 0 foundation

@@ -8,7 +8,7 @@ JobGraph is a skills-based job matching platform where candidates interview once
 
 **Core Value Proposition**: Candidates take skill-specific interviews that are reused across all job applications, eliminating redundant assessments. Employers receive ranked candidates with verified skill scores.
 
-**Current Phase**: Phase 1 In Progress - All 5 backend services (Auth, Profile, Job, Skills, Matching) are complete and tested. Frontend authentication and layout are complete. Working on candidate and employer feature pages.
+**Current Phase**: Phase 1 In Progress - All 5 backend services (Auth, Profile, Job, Skills, Matching) are complete and tested. Frontend authentication, layout, and Profile Management page are complete. Working on Skills Management and other candidate/employer feature pages.
 
 ## Architecture
 
@@ -263,12 +263,28 @@ Built 8 reusable components following consistent API patterns:
 - Form validation with real-time error display
 - Toast notifications for success/error feedback
 - Loading states on buttons during async operations
+- Modal forms for complex data entry (education, work experience)
+- Auto-refresh data after updates to show latest state
 
 **Type Safety:**
 All API responses, entities, and form data have TypeScript type definitions in `types/index.ts`:
 - User, AuthResponse, CandidateProfile, Company, Job, Skill, JobMatch
+- Education, WorkExperience, UserSkillScore
 - LoginFormData, RegisterFormData
 - ApiResponse<T> wrapper matching backend format
+
+**Field Name Mapping:**
+The frontend handles field name conversion between backend (snake_case) and display (camelCase):
+- Backend: `education_id`, `field_of_study`, `graduation_year` → Frontend: accessed as-is with `any` type in maps
+- Backend: `experience_id`, `start_date`, `is_current` → Frontend: accessed as-is with `any` type in maps
+- Form data sent to backend uses snake_case field names expected by API
+
+**Pages Implemented:**
+1. **ProfilePage** (`/candidate/profile`) - Complete CRUD for candidate profiles:
+   - Basic info: headline, summary, location, years of experience, remote preference (onsite/hybrid/remote/flexible), willing to relocate, profile visibility
+   - Education: degree, field of study, institution, graduation year, GPA (modal form)
+   - Work experience: job title, company, start/end dates, current position flag, description (modal form)
+   - All operations use proper field name mapping and auto-refresh profile after updates
 
 ### Matching Algorithm
 

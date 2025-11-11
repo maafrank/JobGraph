@@ -95,12 +95,27 @@ export async function register(req: Request, res: Response): Promise<void> {
       );
     }
 
-    // Generate JWT token
-    const token = generateToken({
+    // Generate JWT access token
+    const accessToken = generateToken({
       user_id: user.user_id,
       email: user.email,
       role: user.role,
     });
+
+    // Generate refresh token
+    const refreshToken = generateRefreshToken();
+    const expiresAt = getRefreshTokenExpiryDate();
+
+    // Get user agent and IP for security tracking
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+
+    // Store refresh token in database
+    await query(
+      `INSERT INTO refresh_tokens (user_id, token, expires_at, user_agent, ip_address)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [user.user_id, refreshToken, expiresAt, userAgent, ipAddress]
+    );
 
     res.status(201).json(
       successResponse({
@@ -113,7 +128,8 @@ export async function register(req: Request, res: Response): Promise<void> {
           emailVerified: false,
           createdAt: user.created_at,
         },
-        token,
+        accessToken,
+        refreshToken,
       })
     );
   } catch (error) {
@@ -197,7 +213,7 @@ export async function login(req: Request, res: Response): Promise<void> {
           role: user.role,
           emailVerified: user.email_verified,
         },
-        token: accessToken,
+        accessToken: accessToken,
         refreshToken: refreshToken,
       })
     );
@@ -308,9 +324,30 @@ export async function refreshAccessToken(req: Request, res: Response): Promise<v
       role: tokenData.role,
     });
 
+    // Generate new refresh token for rotation
+    const newRefreshToken = generateRefreshToken();
+    const expiresAt = getRefreshTokenExpiryDate();
+    const userAgent = req.headers['user-agent'] || 'unknown';
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+
+    // Revoke old refresh token
+    await query(
+      `UPDATE refresh_tokens SET revoked = TRUE, revoked_at = NOW()
+       WHERE token = $1`,
+      [refreshToken]
+    );
+
+    // Store new refresh token
+    await query(
+      `INSERT INTO refresh_tokens (user_id, token, expires_at, user_agent, ip_address)
+       VALUES ($1, $2, $3, $4, $5)`,
+      [tokenData.user_id, newRefreshToken, expiresAt, userAgent, ipAddress]
+    );
+
     res.status(200).json(
       successResponse({
-        token: accessToken,
+        accessToken: accessToken,
+        refreshToken: newRefreshToken,
       })
     );
   } catch (error) {

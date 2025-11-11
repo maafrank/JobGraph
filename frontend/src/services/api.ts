@@ -11,25 +11,19 @@ const API_BASE_URLS = {
 };
 
 // Token management
-let accessToken: string | null = localStorage.getItem('accessToken');
-let refreshToken: string | null = localStorage.getItem('refreshToken');
-
 export const setTokens = (access: string, refresh: string) => {
-  accessToken = access;
-  refreshToken = refresh;
   localStorage.setItem('accessToken', access);
   localStorage.setItem('refreshToken', refresh);
 };
 
 export const clearTokens = () => {
-  accessToken = null;
-  refreshToken = null;
   localStorage.removeItem('accessToken');
   localStorage.removeItem('refreshToken');
   localStorage.removeItem('user');
 };
 
-export const getAccessToken = () => accessToken;
+export const getAccessToken = () => localStorage.getItem('accessToken');
+export const getRefreshToken = () => localStorage.getItem('refreshToken');
 
 // Create axios instance for each service
 const createApiClient = (baseURL: string): AxiosInstance => {
@@ -43,8 +37,9 @@ const createApiClient = (baseURL: string): AxiosInstance => {
   // Request interceptor to add auth token
   instance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
-      if (accessToken && config.headers) {
-        config.headers.Authorization = `Bearer ${accessToken}`;
+      const token = getAccessToken();
+      if (token && config.headers) {
+        config.headers.Authorization = `Bearer ${token}`;
       }
       return config;
     },
@@ -56,16 +51,17 @@ const createApiClient = (baseURL: string): AxiosInstance => {
     (response) => response,
     async (error: AxiosError) => {
       const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+      const currentRefreshToken = getRefreshToken();
 
       // If 401 and we haven't tried to refresh yet
-      if (error.response?.status === 401 && !originalRequest._retry && refreshToken) {
+      if (error.response?.status === 401 && !originalRequest._retry && currentRefreshToken) {
         originalRequest._retry = true;
 
         try {
           // Try to refresh the token using auth service
           const response = await axios.post<ApiResponse<{ accessToken: string; refreshToken: string }>>(
             `${API_BASE_URLS.auth}/auth/refresh`,
-            { refreshToken }
+            { refreshToken: currentRefreshToken }
           );
 
           if (response.data.success && response.data.data) {

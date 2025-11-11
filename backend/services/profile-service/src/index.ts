@@ -3,6 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
 import profileRoutes from './routes/profileRoutes';
+import companyRoutes from './routes/companyRoutes';
 import { testDatabaseConnection, testRedisConnection } from '@jobgraph/common';
 import { errorResponse } from '@jobgraph/common';
 
@@ -40,7 +41,8 @@ app.get('/health', async (req: Request, res: Response) => {
   }
 });
 
-// Routes
+// Routes (order matters! Public routes first, then auth-required routes)
+app.use('/api/v1/profiles', companyRoutes);
 app.use('/api/v1/profiles', profileRoutes);
 
 // 404 handler

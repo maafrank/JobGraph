@@ -292,8 +292,90 @@ fi
 
 echo ""
 
-# Test 17: Check if backend dependencies are installed
-echo "Test 17: Checking backend dependencies..."
+# ============================================================================
+# COMPANY PROFILE TESTS
+# ============================================================================
+
+# Login as employer for company tests
+if [ -z "$EMPLOYER_TOKEN" ]; then
+  EMPLOYER_LOGIN=$(curl -s -X POST http://localhost:3000/api/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{"email": "employer@test.com", "password": "Test123!"}' 2>/dev/null)
+  EMPLOYER_TOKEN=$(echo "$EMPLOYER_LOGIN" | jq -r '.data.token // empty')
+fi
+
+# Test 17: Test Company Profile - Get My Company (Employer)
+echo "Test 17: Testing Company Profile - Get My Company..."
+if [ -n "$EMPLOYER_TOKEN" ]; then
+  GET_COMPANY_RESPONSE=$(curl -s -X GET http://localhost:3001/api/v1/profiles/company \
+    -H "Authorization: Bearer $EMPLOYER_TOKEN" 2>/dev/null)
+
+  if echo "$GET_COMPANY_RESPONSE" | grep -q "companyId"; then
+    test_result 0 "Get my company successful"
+    COMPANY_ID=$(echo $GET_COMPANY_RESPONSE | jq -r '.data.companyId')
+    echo "   Company ID: ${COMPANY_ID:0:20}..."
+  else
+    test_result 1 "Get my company failed"
+    COMPANY_ID=""
+  fi
+else
+  test_result 1 "Cannot test company profile (no employer token)"
+  COMPANY_ID=""
+fi
+
+echo ""
+
+# Test 18: Test Company Profile - Update Company
+echo "Test 18: Testing Company Profile - Update Company..."
+if [ -n "$EMPLOYER_TOKEN" ] && [ -n "$COMPANY_ID" ]; then
+  UPDATE_COMPANY_RESPONSE=$(curl -s -X PUT http://localhost:3001/api/v1/profiles/company \
+    -H "Authorization: Bearer $EMPLOYER_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"description": "Updated via Phase 1 test"}' 2>/dev/null)
+
+  if echo "$UPDATE_COMPANY_RESPONSE" | grep -q "Updated via Phase 1 test"; then
+    test_result 0 "Update company successful"
+  else
+    test_result 1 "Update company failed"
+  fi
+else
+  test_result 1 "Cannot test company update (no token or company ID)"
+fi
+
+echo ""
+
+# Test 19: Test Company Profile - Get Company by ID (Public)
+echo "Test 19: Testing Company Profile - Get by ID (public endpoint)..."
+if [ -n "$COMPANY_ID" ]; then
+  GET_COMPANY_BY_ID_RESPONSE=$(curl -s -X GET "http://localhost:3001/api/v1/profiles/companies/${COMPANY_ID}" 2>/dev/null)
+
+  if echo "$GET_COMPANY_BY_ID_RESPONSE" | grep -q "companyId"; then
+    test_result 0 "Get company by ID successful (public)"
+  else
+    test_result 1 "Get company by ID failed"
+  fi
+else
+  test_result 1 "Cannot test get company by ID (no company ID)"
+fi
+
+echo ""
+
+# Test 20: Test Company Profile - List Companies (Public)
+echo "Test 20: Testing Company Profile - List Companies (public endpoint)..."
+LIST_COMPANIES_RESPONSE=$(curl -s -X GET "http://localhost:3001/api/v1/profiles/companies?limit=5" 2>/dev/null)
+
+if echo "$LIST_COMPANIES_RESPONSE" | grep -q "companies"; then
+  test_result 0 "List companies successful (public)"
+  COMPANY_COUNT=$(echo "$LIST_COMPANIES_RESPONSE" | grep -o "companyId" | wc -l | xargs)
+  echo "   Found $COMPANY_COUNT companies"
+else
+  test_result 1 "List companies failed"
+fi
+
+echo ""
+
+# Test 21: Check if backend dependencies are installed
+echo "Test 25: Checking backend dependencies..."
 if [ -d "backend/node_modules" ]; then
   test_result 0 "Backend node_modules exists"
 else
@@ -303,8 +385,8 @@ fi
 
 echo ""
 
-# Test 18: Check if common package is built
-echo "Test 18: Checking common package build..."
+# Test 22: Check if common package is built
+echo "Test 22: Checking common package build..."
 if [ -d "backend/common/dist" ]; then
   test_result 0 "Common package is built"
 else
@@ -314,8 +396,8 @@ fi
 
 echo ""
 
-# Test 19: Password Validation
-echo "Test 19: Testing Password Validation..."
+# Test 23: Password Validation
+echo "Test 27: Testing Password Validation..."
 WEAK_PW_RESPONSE=$(curl -s -X POST http://localhost:3000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email": "weak@test.com", "password": "weak", "firstName": "Test", "lastName": "User", "role": "candidate"}' 2>/dev/null)
@@ -328,8 +410,8 @@ fi
 
 echo ""
 
-# Test 20: Email Validation
-echo "Test 20: Testing Email Validation..."
+# Test 24: Email Validation
+echo "Test 28: Testing Email Validation..."
 INVALID_EMAIL_RESPONSE=$(curl -s -X POST http://localhost:3000/api/v1/auth/register \
   -H "Content-Type: application/json" \
   -d '{"email": "invalid-email", "password": "Test123!", "firstName": "Test", "lastName": "User", "role": "candidate"}' 2>/dev/null)
@@ -342,8 +424,8 @@ fi
 
 echo ""
 
-# Test 21: Check if Job Service is running
-echo "Test 21: Checking Job Service (Port 3002)..."
+# Test 25: Check if Job Service is running
+echo "Test 25: Checking Job Service (Port 3002)..."
 JOB_HEALTH=$(curl -s http://localhost:3002/health 2>/dev/null)
 if echo "$JOB_HEALTH" | grep -q "healthy"; then
   test_result 0 "Job Service is healthy"
@@ -355,8 +437,8 @@ fi
 
 echo ""
 
-# Test 22: Test Job Service - Create Job
-echo "Test 22: Testing Job Service - Create Job..."
+# Test 26: Test Job Service - Create Job
+echo "Test 26: Testing Job Service - Create Job..."
 # Get company ID
 COMPANY_ID=$(docker exec -i jobgraph-postgres psql -U postgres -d jobgraph_dev -t -c "SELECT company_id FROM companies WHERE name = 'Test Company Inc' LIMIT 1" 2>/dev/null | xargs)
 
@@ -402,8 +484,8 @@ fi
 
 echo ""
 
-# Test 23: Test Job Service - Add Skill to Job
-echo "Test 23: Testing Job Service - Add Skill to Job..."
+# Test 27: Test Job Service - Add Skill to Job
+echo "Test 27: Testing Job Service - Add Skill to Job..."
 if [ -n "$EMPLOYER_TOKEN" ] && [ -n "$TEST_JOB_ID" ]; then
   # Get a skill ID
   SKILL_ID=$(docker exec -i jobgraph-postgres psql -U postgres -d jobgraph_dev -t -c "SELECT skill_id FROM skills WHERE name = 'Python' LIMIT 1" 2>/dev/null | xargs)
@@ -433,8 +515,8 @@ fi
 
 echo ""
 
-# Test 24: Test Job Service - Get Job
-echo "Test 24: Testing Job Service - Get Job..."
+# Test 28: Test Job Service - Get Job
+echo "Test 28: Testing Job Service - Get Job..."
 if [ -n "$TEST_JOB_ID" ]; then
   JOB_GET_RESPONSE=$(curl -s -X GET "http://localhost:3002/api/v1/jobs/${TEST_JOB_ID}" 2>/dev/null)
 
@@ -453,8 +535,8 @@ echo ""
 # SKILLS SERVICE TESTS (Port 3003)
 # ============================================================================
 
-# Test 25: Check if Skills Service is running
-echo "Test 25: Check if Skills Service is running..."
+# Test 29: Check if Skills Service is running
+echo "Test 29: Check if Skills Service is running..."
 SKILL_HEALTH=$(curl -s http://localhost:3003/health 2>/dev/null || echo "")
 if echo "$SKILL_HEALTH" | grep -q "healthy"; then
   test_result 0 "Skills Service is healthy"
@@ -464,8 +546,8 @@ fi
 
 echo ""
 
-# Test 26: Get skills with pagination
-echo "Test 26: Get skills list..."
+# Test 30: Get skills with pagination
+echo "Test 30: Get skills list..."
 SKILLS_RESPONSE=$(curl -s "http://localhost:3003/api/v1/skills?limit=5" 2>/dev/null || echo "")
 if echo "$SKILLS_RESPONSE" | grep -q "\"success\":true"; then
   test_result 0 "Get skills successful"
@@ -477,8 +559,8 @@ fi
 
 echo ""
 
-# Test 27: Get skill categories
-echo "Test 27: Get skill categories..."
+# Test 31: Get skill categories
+echo "Test 31: Get skill categories..."
 CATEGORIES_RESPONSE=$(curl -s "http://localhost:3003/api/v1/skills/categories" 2>/dev/null || echo "")
 if echo "$CATEGORIES_RESPONSE" | grep -q "\"success\":true"; then
   test_result 0 "Get categories successful"
@@ -488,8 +570,8 @@ fi
 
 echo ""
 
-# Test 28: Add manual skill score to candidate profile
-echo "Test 28: Add skill score to candidate profile..."
+# Test 32: Add manual skill score to candidate profile
+echo "Test 32: Add skill score to candidate profile..."
 # Get a skill ID - extract from the JSON response
 PYTHON_SKILL_ID=$(echo "$SKILLS_RESPONSE" | sed -n 's/.*"skillId":"\([^"]*\)".*/\1/p' | head -1)
 
@@ -520,8 +602,8 @@ fi
 
 echo ""
 
-# Test 29: Get candidate's skill scores
-echo "Test 29: Get candidate's skill scores..."
+# Test 33: Get candidate.s skill scores
+echo "Test 33: Get candidate.s skill scores..."
 if [ -n "$TOKEN" ]; then
   GET_SKILLS_RESPONSE=$(curl -s -X GET http://localhost:3001/api/v1/profiles/candidate/skills \
     -H "Authorization: Bearer ${TOKEN}" 2>/dev/null || echo "")
@@ -539,8 +621,8 @@ fi
 
 echo ""
 
-# Test 30: Update skill score
-echo "Test 30: Update skill score..."
+# Test 34: Update skill score
+echo "Test 34: Update skill score..."
 if [ -n "$PYTHON_SKILL_ID" ] && [ "$PYTHON_SKILL_ID" != "" ] && [ -n "$TOKEN" ]; then
   UPDATE_SKILL_RESPONSE=$(curl -s -X PUT "http://localhost:3001/api/v1/profiles/candidate/skills/${PYTHON_SKILL_ID}" \
     -H "Authorization: Bearer ${TOKEN}" \
@@ -564,8 +646,8 @@ echo ""
 # MATCHING SERVICE TESTS (Port 3004)
 # ============================================================================
 
-# Test 31: Check if Matching Service is running
-echo "Test 31: Check if Matching Service is running..."
+# Test 35: Check if Matching Service is running
+echo "Test 35: Check if Matching Service is running..."
 MATCHING_HEALTH=$(curl -s http://localhost:3004/health 2>/dev/null || echo "")
 if echo "$MATCHING_HEALTH" | grep -q "healthy"; then
   test_result 0 "Matching Service is healthy"
@@ -575,8 +657,8 @@ fi
 
 echo ""
 
-# Test 32: Calculate job matches (employer must have job with skills)
-echo "Test 32: Calculate job matches..."
+# Test 36: Calculate job matches (employer must have job with skills)
+echo "Test 36: Calculate job matches..."
 if [ -n "$TEST_JOB_ID" ] && [ -n "$EMPLOYER_TOKEN" ]; then
   CALC_MATCHES_RESPONSE=$(curl -s -X POST "http://localhost:3004/api/v1/matching/jobs/${TEST_JOB_ID}/calculate" \
     -H "Authorization: Bearer ${EMPLOYER_TOKEN}" 2>/dev/null || echo "")
@@ -596,8 +678,8 @@ fi
 
 echo ""
 
-# Test 33: Get job candidates (employer view)
-echo "Test 33: Get job candidates (employer view)..."
+# Test 37: Get job candidates (employer view)
+echo "Test 37: Get job candidates (employer view)..."
 if [ -n "$TEST_JOB_ID" ] && [ -n "$EMPLOYER_TOKEN" ]; then
   GET_CANDIDATES_RESPONSE=$(curl -s -X GET "http://localhost:3004/api/v1/matching/jobs/${TEST_JOB_ID}/candidates" \
     -H "Authorization: Bearer ${EMPLOYER_TOKEN}" 2>/dev/null || echo "")
@@ -615,8 +697,8 @@ fi
 
 echo ""
 
-# Test 34: Get candidate matches (candidate view)
-echo "Test 34: Get candidate matches (candidate view)..."
+# Test 38: Get candidate matches (candidate view)
+echo "Test 38: Get candidate matches (candidate view)..."
 if [ -n "$TOKEN" ]; then
   GET_MY_MATCHES_RESPONSE=$(curl -s -X GET "http://localhost:3004/api/v1/matching/candidate/matches" \
     -H "Authorization: Bearer ${TOKEN}" 2>/dev/null || echo "")
@@ -634,8 +716,8 @@ fi
 
 echo ""
 
-# Test 35: Contact a candidate (employer action)
-echo "Test 35: Contact a candidate..."
+# Test 39: Contact a candidate (employer action)
+echo "Test 39: Contact a candidate..."
 # Extract first match ID from the candidates response
 MATCH_ID=$(echo "$GET_CANDIDATES_RESPONSE" | sed -n 's/.*"matchId":"\([^"]*\)".*/\1/p' | head -1)
 
@@ -656,8 +738,8 @@ fi
 
 echo ""
 
-# Test 36: Update match status
-echo "Test 36: Update match status..."
+# Test 40: Update match status
+echo "Test 40: Update match status..."
 if [ -n "$MATCH_ID" ] && [ "$MATCH_ID" != "" ] && [ -n "$EMPLOYER_TOKEN" ]; then
   UPDATE_STATUS_RESPONSE=$(curl -s -X PUT "http://localhost:3004/api/v1/matching/matches/${MATCH_ID}/status" \
     -H "Authorization: Bearer ${EMPLOYER_TOKEN}" \

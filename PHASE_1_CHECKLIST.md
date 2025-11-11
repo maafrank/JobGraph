@@ -31,7 +31,7 @@
 
 ---
 
-## 2. Profile Service (Week 4) ✅ COMPLETE (Candidate), ⏳ Company Profile Pending
+## 2. Profile Service (Week 4) ✅ COMPLETE
 
 ### 2.1 Candidate Profile Management
 - [x] Profile service structure
@@ -58,23 +58,27 @@
 - [x] DELETE /api/v1/profiles/candidate/experience/:id - Delete experience
 - [x] Support for current position (is_current flag)
 
-### 2.4 Company Profile Management
-- [ ] POST /api/v1/profiles/company - Create company profile
-- [ ] GET /api/v1/profiles/company/:companyId - Get company profile
-- [ ] PUT /api/v1/profiles/company - Update company profile
-  - [ ] Company name
-  - [ ] Description
-  - [ ] Industry
-  - [ ] Size
-  - [ ] Website
-  - [ ] Location
-- [ ] Link users to companies (company_users table)
+### 2.4 Company Profile Management ✅ COMPLETE
+- [x] POST /api/v1/profiles/company - Create company profile
+- [x] GET /api/v1/profiles/companies/:companyId - Get company profile (public)
+- [x] GET /api/v1/profiles/company - Get my company (private)
+- [x] GET /api/v1/profiles/companies - List companies (public, with pagination/filters)
+- [x] PUT /api/v1/profiles/company - Update company profile
+  - [x] Company name
+  - [x] Description
+  - [x] Industry
+  - [x] Size
+  - [x] Website
+  - [x] Location
+- [x] Link users to companies (company_users table)
+- [x] Role-based access control (employer only, owner/admin for updates)
+- [x] Business logic validations (unique names, one company per user)
 
 ### 2.5 Testing
 - [x] Test profile CRUD operations
 - [x] Test education CRUD operations
 - [x] Test work experience CRUD operations
-- [ ] Test company profile operations
+- [x] Test company profile operations (test-company-api.sh - 6 tests)
 - [x] Test authorization (users can only edit their own profiles)
 
 ---
@@ -392,11 +396,10 @@ Once all Phase 1 items are complete, the MVP is ready for Phase 2, which will in
 
 ✅ **Phase 0**: Complete - Foundation established
 ✅ **1. Auth Service**: Core functionality complete (missing refresh tokens, logout, email verification)
-✅ **2. Profile Service (Candidate)**: Complete - All CRUD operations working
+✅ **2. Profile Service**: Complete - Candidate profiles AND company profiles fully operational
 ✅ **4. Skills Management**: Complete - Skills API and manual skill score management
 ✅ **5. Job Service**: Complete - Job posting and skills management
 ✅ **6. Matching Service**: Complete - Core matching algorithm with weighted scoring
-⏳ **2.4 Company Profile Management**: Not started (manual test data sufficient for MVP)
 ⏳ **3. File Upload & Resume Parsing**: Not started (deferred to Phase 2)
 
 **Services Running:**
@@ -407,8 +410,8 @@ Once all Phase 1 items are complete, the MVP is ready for Phase 2, which will in
 - Matching Service (Port 3004) - `/api/v1/matching/*`
 
 **Test Coverage:**
-- 36 tests in `test-phase1.sh` covering all 5 services (all passing ✅)
-- Individual test scripts: `test-auth-api.sh`, `test-profile-api.sh`, `test-job-api.sh`, `test-skills-api.sh`
+- 40 tests in `test-phase1.sh` covering all 5 services (all passing ✅)
+- Individual test scripts: `test-auth-api.sh`, `test-profile-api.sh`, `test-job-api.sh`, `test-skills-api.sh`, `test-company-api.sh`
 
 **Core Backend MVP Complete!** All 5 backend microservices are implemented and operational.
 

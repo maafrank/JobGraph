@@ -342,6 +342,113 @@ fi
 
 echo ""
 
+# Test 21: Check if Job Service is running
+echo "Test 21: Checking Job Service (Port 3002)..."
+JOB_HEALTH=$(curl -s http://localhost:3002/health 2>/dev/null)
+if echo "$JOB_HEALTH" | grep -q "healthy"; then
+  test_result 0 "Job Service is healthy"
+  echo "   $(echo $JOB_HEALTH | jq -r '.timestamp // "No timestamp"')"
+else
+  test_result 1 "Job Service is not responding"
+  echo -e "${YELLOW}   Make sure Job Service is running: cd backend/services/job-service && npm run dev${NC}"
+fi
+
+echo ""
+
+# Test 22: Test Job Service - Create Job
+echo "Test 22: Testing Job Service - Create Job..."
+# Get company ID
+COMPANY_ID=$(docker exec -i jobgraph-postgres psql -U postgres -d jobgraph_dev -t -c "SELECT company_id FROM companies WHERE name = 'Test Company Inc' LIMIT 1" 2>/dev/null | xargs)
+
+if [ -n "$TOKEN" ] && [ -n "$COMPANY_ID" ]; then
+  # Login as employer first
+  EMPLOYER_LOGIN=$(curl -s -X POST http://localhost:3000/api/v1/auth/login \
+    -H "Content-Type: application/json" \
+    -d '{
+      "email": "employer@test.com",
+      "password": "Test123!"
+    }' 2>/dev/null)
+
+  EMPLOYER_TOKEN=$(echo "$EMPLOYER_LOGIN" | jq -r '.data.token // empty')
+
+  if [ -n "$EMPLOYER_TOKEN" ]; then
+    JOB_CREATE_RESPONSE=$(curl -s -X POST http://localhost:3002/api/v1/jobs \
+      -H "Authorization: Bearer $EMPLOYER_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "companyId": "'"$COMPANY_ID"'",
+        "title": "Test Job",
+        "description": "Test job description",
+        "city": "San Francisco",
+        "state": "CA",
+        "country": "USA",
+        "remoteOption": "remote",
+        "employmentType": "full-time",
+        "experienceLevel": "mid"
+      }' 2>/dev/null)
+
+    if echo "$JOB_CREATE_RESPONSE" | grep -q "jobId"; then
+      test_result 0 "Job creation successful"
+      TEST_JOB_ID=$(echo $JOB_CREATE_RESPONSE | jq -r '.data.jobId')
+    else
+      test_result 1 "Job creation failed"
+    fi
+  else
+    test_result 1 "Could not login as employer"
+  fi
+else
+  test_result 1 "Cannot test job creation (missing data)"
+fi
+
+echo ""
+
+# Test 23: Test Job Service - Add Skill to Job
+echo "Test 23: Testing Job Service - Add Skill to Job..."
+if [ -n "$EMPLOYER_TOKEN" ] && [ -n "$TEST_JOB_ID" ]; then
+  # Get a skill ID
+  SKILL_ID=$(docker exec -i jobgraph-postgres psql -U postgres -d jobgraph_dev -t -c "SELECT skill_id FROM skills WHERE name = 'Python' LIMIT 1" 2>/dev/null | xargs)
+
+  if [ -n "$SKILL_ID" ]; then
+    JOB_SKILL_RESPONSE=$(curl -s -X POST "http://localhost:3002/api/v1/jobs/${TEST_JOB_ID}/skills" \
+      -H "Authorization: Bearer $EMPLOYER_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{
+        "skillId": "'"$SKILL_ID"'",
+        "weight": 0.8,
+        "minimumScore": 70,
+        "required": true
+      }' 2>/dev/null)
+
+    if echo "$JOB_SKILL_RESPONSE" | grep -q "jobSkillId"; then
+      test_result 0 "Add skill to job successful"
+    else
+      test_result 1 "Add skill to job failed"
+    fi
+  else
+    test_result 1 "Could not get skill ID"
+  fi
+else
+  test_result 1 "Cannot test add skill (missing job or token)"
+fi
+
+echo ""
+
+# Test 24: Test Job Service - Get Job
+echo "Test 24: Testing Job Service - Get Job..."
+if [ -n "$TEST_JOB_ID" ]; then
+  JOB_GET_RESPONSE=$(curl -s -X GET "http://localhost:3002/api/v1/jobs/${TEST_JOB_ID}" 2>/dev/null)
+
+  if echo "$JOB_GET_RESPONSE" | grep -q "Test Job"; then
+    test_result 0 "Get job successful"
+  else
+    test_result 1 "Get job failed"
+  fi
+else
+  test_result 1 "Cannot test get job (no job ID)"
+fi
+
+echo ""
+
 # Summary
 echo "============================"
 echo "📊 Test Summary"
@@ -356,6 +463,7 @@ if [ $TESTS_FAILED -eq 0 ]; then
   echo "Services Running:"
   echo "  • Auth Service: http://localhost:3000"
   echo "  • Profile Service: http://localhost:3001"
+  echo "  • Job Service: http://localhost:3002"
   echo ""
   echo "Database:"
   echo "  • PostgreSQL: localhost:5432"
@@ -363,10 +471,10 @@ if [ $TESTS_FAILED -eq 0 ]; then
   echo "  • Adminer: http://localhost:8080"
   echo ""
   echo "Next Steps:"
-  echo "  1. Continue with Job Service"
-  echo "  2. Implement Skills Management"
-  echo "  3. Build Matching Service"
-  echo "  4. Create Frontend"
+  echo "  1. Implement Skills Management"
+  echo "  2. Build Matching Service"
+  echo "  3. Create Frontend"
+  echo "  4. Add more comprehensive tests"
   exit 0
 else
   echo -e "${YELLOW}⚠ Some tests failed. Please review the failures above.${NC}"

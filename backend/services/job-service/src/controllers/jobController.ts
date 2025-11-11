@@ -250,7 +250,7 @@ export async function getJobById(req: Request, res: Response): Promise<void> {
     // Get job with company info and required skills
     const result = await query(
       `SELECT j.*, c.name as company_name, c.description as company_description,
-              c.industry, c.size, c.website,
+              c.industry, c.company_size, c.website,
               (SELECT json_agg(
                 json_build_object(
                   'skillId', s.skill_id,
@@ -288,7 +288,7 @@ export async function getJobById(req: Request, res: Response): Promise<void> {
         companyName: job.company_name,
         companyDescription: job.company_description,
         companyIndustry: job.industry,
-        companySize: job.size,
+        companySize: job.company_size,
         companyWebsite: job.website,
         postedBy: job.posted_by,
         title: job.title,
@@ -498,7 +498,7 @@ export async function addJobSkill(req: Request, res: Response): Promise<void> {
 
     // Verify skill exists
     const skillCheck = await query(
-      'SELECT skill_id, name FROM skills WHERE skill_id = $1 AND is_active = TRUE',
+      'SELECT skill_id, name FROM skills WHERE skill_id = $1 AND active = TRUE',
       [skillId]
     );
 

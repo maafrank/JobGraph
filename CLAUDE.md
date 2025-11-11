@@ -79,6 +79,15 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - Returns nested JSON with education and work experience arrays
 - Authorization check: queries join through `candidate_profiles` to verify ownership
 
+**Job Service** (Port 3002):
+- Employer-only routes for creating/modifying jobs (role-based access control)
+- Ownership verification via `company_users` table join
+- Public routes for listing and viewing jobs
+- Skills table uses `active` column (not `is_active`)
+- Companies table uses `company_size` column (not `size`)
+- Job status workflow: draft → active → closed/cancelled
+- Supports pagination, filtering, and search for job listings
+
 ### Common Package API
 
 **Database** (`@jobgraph/common/database`):
@@ -202,13 +211,14 @@ npm test -- --testNamePattern="Password"  # Run tests matching pattern
 npm run test:watch                 # Watch mode
 npm run test:coverage              # Generate coverage report
 
-# API Integration Tests (must have Docker services and auth/profile services running)
+# API Integration Tests (must have Docker services and services running)
 ./scripts/test-auth-api.sh         # Test Auth Service (9 tests)
 ./scripts/test-profile-api.sh      # Test Profile Service (14 tests)
+./scripts/test-job-api.sh          # Test Job Service (13 tests)
 
 # Phase Test Suites
 ./scripts/test-phase0.sh           # Verify Phase 0 foundation
-./scripts/test-phase1.sh           # Verify Phase 1 services (21 tests)
+./scripts/test-phase1.sh           # Verify Phase 1 services (24 tests)
 ```
 
 ### Adding a New Service
@@ -369,7 +379,7 @@ See [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) for complete details.
 **Phase 1 (Current)**: MVP - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
 - ✅ Auth Service (local auth with JWT) - `/api/v1/auth/*` on port 3000
 - ✅ Profile Service (CRUD operations) - `/api/v1/profiles/*` on port 3001
-- 🔄 Job Service (posting and management)
+- ✅ Job Service (posting and management) - `/api/v1/jobs/*` on port 3002
 - 🔄 Basic matching (manual skill scores)
 - 🔄 Frontend (React + TypeScript)
 

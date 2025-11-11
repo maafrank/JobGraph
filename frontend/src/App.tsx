@@ -14,9 +14,12 @@ import { CandidateDashboard } from './pages/candidate/CandidateDashboard';
 import { ProfilePage } from './pages/candidate/ProfilePage';
 import { SkillsPage } from './pages/candidate/SkillsPage';
 import { JobMatchesPage } from './pages/candidate/JobMatchesPage';
+import { MyApplicationsPage } from './pages/candidate/MyApplicationsPage';
 import { EmployerDashboard } from './pages/employer/EmployerDashboard';
 import { CompanyProfilePage } from './pages/employer/CompanyProfilePage';
 import { JobPostingPage } from './pages/employer/JobPostingPage';
+import JobManagementPage from './pages/employer/JobManagementPage';
+import CandidateMatchesPage from './pages/employer/CandidateMatchesPage';
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -83,6 +86,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/candidate/applications"
+            element={
+              <ProtectedRoute requiredRole="candidate">
+                <MyApplicationsPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Employer routes */}
           <Route
@@ -121,7 +132,15 @@ function App() {
             path="/employer/jobs"
             element={
               <ProtectedRoute requiredRole="employer">
-                <div>Job management page coming soon...</div>
+                <JobManagementPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employer/jobs/:jobId/candidates"
+            element={
+              <ProtectedRoute requiredRole="employer">
+                <CandidateMatchesPage />
               </ProtectedRoute>
             }
           />

@@ -6,6 +6,8 @@ import {
   browseJobsWithScores,
   updateMatchStatus,
   contactCandidate,
+  getApplicationDetails,
+  updateApplicationStatus,
 } from '../controllers/matchingController';
 import { authenticate, requireRole } from '../middleware/authMiddleware';
 
@@ -55,5 +57,19 @@ router.put('/matches/:matchId/status', requireRole('employer'), updateMatchStatu
  * @access  Private (Employer only)
  */
 router.post('/matches/:matchId/contact', requireRole('employer'), contactCandidate);
+
+/**
+ * @route   GET /api/v1/matching/applications/:applicationId
+ * @desc    Get application details (employer view - includes cover letter)
+ * @access  Private (Employer only)
+ */
+router.get('/applications/:applicationId', requireRole('employer'), getApplicationDetails);
+
+/**
+ * @route   PUT /api/v1/matching/applications/:applicationId/status
+ * @desc    Update application status (employer only)
+ * @access  Private (Employer only)
+ */
+router.put('/applications/:applicationId/status', requireRole('employer'), updateApplicationStatus);
 
 export default router;

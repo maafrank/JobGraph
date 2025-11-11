@@ -241,7 +241,7 @@ export async function getJobCandidates(req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Get matches for this job
+    // Get matches for this job, including application data if exists
     const matchesResult = await query(
       `SELECT
          jm.match_id,
@@ -253,16 +253,24 @@ export async function getJobCandidates(req: Request, res: Response): Promise<voi
          jm.contacted_at,
          jm.created_at,
          u.email,
+         u.first_name,
+         u.last_name,
          cp.profile_id,
          cp.headline,
          cp.years_experience,
          cp.city,
          cp.state,
          cp.willing_to_relocate,
-         cp.remote_preference
+         cp.remote_preference,
+         ja.application_id,
+         ja.applied_at,
+         ja.cover_letter,
+         ja.status as application_status,
+         ja.reviewed_at
        FROM job_matches jm
        JOIN users u ON jm.user_id = u.user_id
        JOIN candidate_profiles cp ON u.user_id = cp.user_id
+       LEFT JOIN job_applications ja ON jm.job_id = ja.job_id AND jm.user_id = ja.user_id
        WHERE jm.job_id = $1
        ORDER BY jm.match_rank ASC`,
       [jobId]
@@ -271,22 +279,32 @@ export async function getJobCandidates(req: Request, res: Response): Promise<voi
     const matches = matchesResult.rows.map(match => ({
       matchId: match.match_id,
       userId: match.user_id,
+      firstName: match.first_name,
+      lastName: match.last_name,
       email: match.email,
       profileId: match.profile_id,
-      headline: match.headline,
-      yearsExperience: match.years_experience,
-      location: {
-        city: match.city,
-        state: match.state,
-      },
-      willingToRelocate: match.willing_to_relocate,
-      remotePreference: match.remote_preference,
       overallScore: parseFloat(match.overall_score),
       rank: match.match_rank,
-      skillBreakdown: match.skill_breakdown,
       status: match.status,
       contactedAt: match.contacted_at,
-      matchedAt: match.created_at,
+      profile: {
+        headline: match.headline,
+        summary: null, // Not selected in current query
+        yearsOfExperience: match.years_experience,
+        city: match.city,
+        state: match.state,
+        remotePreference: match.remote_preference,
+      },
+      skillBreakdown: match.skill_breakdown,
+      createdAt: match.created_at,
+      // Application data (if candidate has applied)
+      hasApplied: !!match.application_id,
+      applicationId: match.application_id,
+      appliedAt: match.applied_at,
+      coverLetter: match.cover_letter,
+      applicationStatus: match.application_status,
+      applicationReviewedAt: match.reviewed_at,
+      source: match.application_id ? 'both' : 'matched',
     }));
 
     res.status(200).json(
@@ -294,7 +312,7 @@ export async function getJobCandidates(req: Request, res: Response): Promise<voi
         jobId: jobId,
         jobTitle: jobCheck.rows[0].title,
         totalMatches: matches.length,
-        matches: matches,
+        candidates: matches,
       })
     );
   } catch (error: any) {
@@ -792,6 +810,170 @@ export async function browseJobsWithScores(req: Request, res: Response): Promise
     console.error('Browse jobs with scores error:', error);
     res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'An error occurred browsing jobs')
+    );
+  }
+}
+
+/**
+ * Get application details (Employer view)
+ * Allows employer to view full application including cover letter
+ */
+export async function getApplicationDetails(req: Request, res: Response): Promise<void> {
+  try {
+    const { applicationId } = req.params;
+    const userId = (req as any).user.user_id;
+
+    // Verify application exists and employer has permission (owns the job)
+    const appResult = await query(
+      `SELECT
+         ja.application_id,
+         ja.job_id,
+         ja.user_id,
+         ja.cover_letter,
+         ja.resume_url,
+         ja.custom_responses,
+         ja.status,
+         ja.applied_at,
+         ja.reviewed_at,
+         ja.updated_at,
+         u.email,
+         u.first_name,
+         u.last_name,
+         cp.profile_id,
+         cp.headline,
+         cp.summary,
+         cp.years_experience,
+         cp.city,
+         cp.state,
+         cp.remote_preference,
+         j.title as job_title,
+         j.company_id,
+         jm.overall_score,
+         jm.match_rank,
+         jm.skill_breakdown
+       FROM job_applications ja
+       JOIN jobs j ON ja.job_id = j.job_id
+       JOIN company_users cu ON j.company_id = cu.company_id
+       JOIN users u ON ja.user_id = u.user_id
+       JOIN candidate_profiles cp ON u.user_id = cp.user_id
+       LEFT JOIN job_matches jm ON ja.job_id = jm.job_id AND ja.user_id = jm.user_id
+       WHERE ja.application_id = $1 AND cu.user_id = $2`,
+      [applicationId, userId]
+    );
+
+    if (appResult.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('APPLICATION_NOT_FOUND', 'Application not found or you do not have permission')
+      );
+      return;
+    }
+
+    const app = appResult.rows[0];
+
+    // Mark as reviewed if not already
+    if (!app.reviewed_at) {
+      await query(
+        `UPDATE job_applications SET reviewed_at = NOW() WHERE application_id = $1`,
+        [applicationId]
+      );
+    }
+
+    res.status(200).json(
+      successResponse({
+        applicationId: app.application_id,
+        jobId: app.job_id,
+        jobTitle: app.job_title,
+        candidate: {
+          userId: app.user_id,
+          firstName: app.first_name,
+          lastName: app.last_name,
+          email: app.email,
+          profile: {
+            profileId: app.profile_id,
+            headline: app.headline,
+            summary: app.summary,
+            yearsOfExperience: app.years_experience,
+            city: app.city,
+            state: app.state,
+            remotePreference: app.remote_preference,
+          },
+        },
+        coverLetter: app.cover_letter,
+        resumeUrl: app.resume_url,
+        customResponses: app.custom_responses,
+        status: app.status,
+        appliedAt: app.applied_at,
+        reviewedAt: app.reviewed_at || new Date(),
+        updatedAt: app.updated_at,
+        // Match data if exists
+        matchScore: app.overall_score ? parseFloat(app.overall_score) : null,
+        matchRank: app.match_rank,
+        skillBreakdown: app.skill_breakdown,
+      })
+    );
+  } catch (error: any) {
+    console.error('Get application details error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred fetching application details')
+    );
+  }
+}
+
+/**
+ * Update application status (Employer only)
+ */
+export async function updateApplicationStatus(req: Request, res: Response): Promise<void> {
+  try {
+    const { applicationId } = req.params;
+    const { status } = req.body;
+    const userId = (req as any).user.user_id;
+
+    // Validate status
+    const validStatuses = ['submitted', 'under_review', 'interviewing', 'rejected', 'withdrawn', 'accepted'];
+    if (!validStatuses.includes(status)) {
+      res.status(400).json(
+        errorResponse('INVALID_STATUS', `Status must be one of: ${validStatuses.join(', ')}`)
+      );
+      return;
+    }
+
+    // Verify application exists and employer has permission
+    const appCheck = await query(
+      `SELECT ja.application_id, ja.job_id
+       FROM job_applications ja
+       JOIN jobs j ON ja.job_id = j.job_id
+       JOIN company_users cu ON j.company_id = cu.company_id
+       WHERE ja.application_id = $1 AND cu.user_id = $2`,
+      [applicationId, userId]
+    );
+
+    if (appCheck.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('APPLICATION_NOT_FOUND', 'Application not found or you do not have permission')
+      );
+      return;
+    }
+
+    // Update application status
+    const result = await query(
+      `UPDATE job_applications
+       SET status = $1, updated_at = NOW()
+       WHERE application_id = $2
+       RETURNING application_id, status, updated_at`,
+      [status, applicationId]
+    );
+
+    res.status(200).json(
+      successResponse({
+        applicationId: result.rows[0].application_id,
+        status: result.rows[0].status,
+        updatedAt: result.rows[0].updated_at,
+      })
+    );
+  } catch (error: any) {
+    console.error('Update application status error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred updating application status')
     );
   }
 }

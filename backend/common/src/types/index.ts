@@ -63,6 +63,19 @@ export interface Job {
   expires_at?: Date;
 }
 
+export interface JobApplication {
+  application_id: string;
+  job_id: string;
+  user_id: string;
+  cover_letter?: string;
+  resume_url?: string;
+  custom_responses?: Record<string, any>;
+  status: 'submitted' | 'under_review' | 'interviewing' | 'rejected' | 'withdrawn' | 'accepted';
+  applied_at: Date;
+  reviewed_at?: Date;
+  updated_at: Date;
+}
+
 // API Response types
 export interface ApiResponse<T = any> {
   success: boolean;

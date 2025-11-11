@@ -242,6 +242,95 @@ export async function getJobs(req: Request, res: Response): Promise<void> {
 }
 
 /**
+ * Get jobs posted by the current employer
+ * GET /api/v1/jobs/my-jobs
+ */
+export async function getMyJobs(req: Request, res: Response): Promise<void> {
+  try {
+    const user = (req as any).user;
+    const userId = user.user_id;
+
+    const {
+      page = 1,
+      limit = 20,
+      status,
+    } = req.query;
+
+    const offset = (Number(page) - 1) * Number(limit);
+    const conditions: string[] = ['j.posted_by = $1'];
+    const params: any[] = [userId];
+    let paramCount = 2;
+
+    // Build WHERE clause
+    if (status) {
+      conditions.push(`j.status = $${paramCount++}`);
+      params.push(status);
+    }
+
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+    // Get total count
+    const countResult = await query(
+      `SELECT COUNT(*) FROM jobs j ${whereClause}`,
+      params
+    );
+    const total = parseInt(countResult.rows[0].count);
+
+    // Get jobs with company info and skill count
+    const jobsResult = await query(
+      `SELECT j.*, c.name as company_name,
+              (SELECT COUNT(*) FROM job_skills js WHERE js.job_id = j.job_id AND js.required = true) as required_skills_count
+       FROM jobs j
+       JOIN companies c ON j.company_id = c.company_id
+       ${whereClause}
+       ORDER BY j.created_at DESC
+       LIMIT $${paramCount} OFFSET $${paramCount + 1}`,
+      [...params, Number(limit), offset]
+    );
+
+    const jobs = jobsResult.rows.map((job) => ({
+      jobId: job.job_id,
+      companyId: job.company_id,
+      companyName: job.company_name,
+      postedBy: job.posted_by,
+      title: job.title,
+      description: job.description,
+      requirements: job.requirements,
+      responsibilities: job.responsibilities,
+      city: job.city,
+      state: job.state,
+      country: job.country,
+      remoteOption: job.remote_option,
+      salaryMin: job.salary_min,
+      salaryMax: job.salary_max,
+      salaryCurrency: job.salary_currency,
+      employmentType: job.employment_type,
+      experienceLevel: job.experience_level,
+      status: job.status,
+      views: job.views,
+      requiredSkillsCount: parseInt(job.required_skills_count),
+      createdAt: job.created_at,
+      updatedAt: job.updated_at,
+      expiresAt: job.expires_at,
+    }));
+
+    res.json(
+      successResponse(jobs, {
+        page: Number(page),
+        limit: Number(limit),
+        total,
+        pages: Math.ceil(total / Number(limit)),
+      })
+    );
+  } catch (error) {
+    console.error('Get my jobs error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'Failed to retrieve your jobs')
+    );
+  }
+}
+
+/**
  * Get a single job by ID
  * GET /api/v1/jobs/:jobId
  */

@@ -188,13 +188,39 @@
 - [x] DELETE /api/v1/jobs/:id/skills/:skillId - Remove skill
 - [x] Weight normalization (stored as decimal 0-1)
 
-### 5.3 Testing
+### 5.3 Job Applications ✅ COMPLETE
+- [x] Database migration: job_applications table with status workflow
+- [x] POST /api/v1/jobs/:jobId/apply - Candidate applies to job
+  - [x] Cover letter (optional)
+  - [x] Resume URL (optional)
+  - [x] Duplicate application prevention (UNIQUE constraint)
+  - [x] Active job validation
+- [x] GET /api/v1/jobs/applications - Get my applications (candidate)
+  - [x] Pagination support
+  - [x] Filter by status
+  - [x] Include match scores via LEFT JOIN
+- [x] GET /api/v1/jobs/applications/:applicationId - Get application details
+- [x] DELETE /api/v1/jobs/applications/:applicationId - Withdraw application
+  - [x] Only allow for submitted/under_review status
+- [x] GET /api/v1/matching/applications/:applicationId - Employer view application
+  - [x] Include cover letter and full candidate profile
+  - [x] Auto-mark as reviewed
+- [x] PUT /api/v1/matching/applications/:applicationId/status - Update application status
+  - [x] Employer-only action
+  - [x] Status workflow: submitted → under_review → interviewing → accepted/rejected
+- [x] Enhanced getJobCandidates to include application data
+  - [x] LEFT JOIN job_applications
+  - [x] Add hasApplied, applicationStatus, appliedAt fields
+  - [x] Source tracking: 'matched', 'applied', 'both'
+
+### 5.4 Testing
 - [x] Test job creation
 - [x] Test job listing with filters
 - [x] Test job updates
 - [x] Test job skills management
 - [x] Test authorization (only job owner can edit)
 - [x] Integrated into test-phase1.sh (Tests 21-24)
+- [x] Job applications manual testing (test-applications.sh)
 
 ---
 
@@ -322,6 +348,20 @@
   - [x] Job detail modal with complete skill breakdown
   - [x] Visual progress bars for skill scores
   - [x] Shows skill weights and minimum thresholds
+  - [x] **Apply to jobs functionality** ✅
+    - [x] Apply button on job cards
+    - [x] Apply modal with cover letter (optional)
+    - [x] Track applied jobs (✓ Applied badge)
+    - [x] Duplicate application prevention
+    - [x] Success/error toast notifications
+- [x] My Applications page ✅ COMPLETE
+  - [x] View all submitted applications
+  - [x] Filter by application status (submitted, under_review, interviewing, accepted, rejected, withdrawn)
+  - [x] Application status badges with color coding
+  - [x] Display match score if calculated
+  - [x] Application details modal (cover letter, timeline, job details)
+  - [x] Withdraw application functionality (for submitted/under_review)
+  - [x] Empty state with link to browse jobs
 
 ### 7.4 Employer Pages
 - [ ] Employer dashboard (company stats, recent jobs)
@@ -350,13 +390,30 @@
   - [ ] Edit/close/reopen jobs
   - [ ] Trigger matching calculation
   - [ ] View match statistics
-- [ ] Candidate matches page (per job)
-  - [ ] View ranked candidates for selected job
-  - [ ] See overall match score and rank
-  - [ ] Skill-by-skill breakdown table
-  - [ ] Contact candidate button (updates status)
-  - [ ] Update match status dropdown
-  - [ ] Filter by match status
+- [x] Candidate matches page (per job) ✅ COMPLETE
+  - [x] View ranked candidates for selected job
+  - [x] See overall match score and rank
+  - [x] Skill-by-skill breakdown table
+  - [x] Contact candidate button (updates status)
+  - [x] Update match status dropdown
+  - [x] **Filter tabs: All / Applied / Matched Only** ✅
+  - [x] **Application status badges and dates** ✅
+    - [x] Show application status with color coding (📝 badge)
+    - [x] Display match status (🎯 badge)
+    - [x] Source badge (✓ Applied & Matched)
+    - [x] Applied date, contacted date, reviewed date
+  - [x] **View Application button** ✅
+    - [x] Opens application details modal
+    - [x] Shows cover letter
+    - [x] Displays match score and rank
+    - [x] Full candidate profile (headline, summary, location, experience)
+    - [x] Skill breakdown with scores
+    - [x] Application timeline
+    - [x] Update application status dropdown
+  - [x] **Enhanced candidate display** ✅
+    - [x] Separate match status and application status
+    - [x] Show dates (applied, contacted, reviewed)
+    - [x] Candidate counts: total and applied
 
 ### 7.5 Testing & Polish
 - [ ] Manual testing of candidate registration → profile → skills → view matches

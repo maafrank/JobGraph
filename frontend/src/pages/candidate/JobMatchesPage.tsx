@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Layout } from '../../components/layout';
-import { Card, Button, LoadingSpinner, Modal, useToast } from '../../components/common';
+import { Card, Button, LoadingSpinner, Modal, useToast, Textarea } from '../../components/common';
 import { matchingService } from '../../services/matchingService';
+import { applicationService } from '../../services/applicationService';
 import type { JobWithScore, SkillBreakdownItem } from '../../services/matchingService';
 
 export const JobMatchesPage = () => {
@@ -11,6 +12,13 @@ export const JobMatchesPage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<JobWithScore | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
+
+  // Apply modal state
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [jobToApply, setJobToApply] = useState<JobWithScore | null>(null);
+  const [coverLetter, setCoverLetter] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
+  const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
 
   // Filters
   const [filterRemote, setFilterRemote] = useState<'all' | 'remote' | 'onsite'>('all');
@@ -37,6 +45,41 @@ export const JobMatchesPage = () => {
   const handleViewDetails = (job: JobWithScore) => {
     setSelectedJob(job);
     setIsDetailModalOpen(true);
+  };
+
+  const handleApplyClick = (job: JobWithScore) => {
+    setJobToApply(job);
+    setCoverLetter('');
+    setIsApplyModalOpen(true);
+  };
+
+  const handleApplySubmit = async () => {
+    if (!jobToApply) return;
+
+    try {
+      setIsApplying(true);
+      await applicationService.applyToJob(jobToApply.jobId, {
+        coverLetter: coverLetter.trim() || undefined,
+      });
+
+      // Add to applied jobs set
+      setAppliedJobIds(prev => new Set(prev).add(jobToApply.jobId));
+
+      toast.success(`Successfully applied to ${jobToApply.jobTitle}!`);
+      setIsApplyModalOpen(false);
+      setCoverLetter('');
+      setJobToApply(null);
+    } catch (error: any) {
+      if (error.response?.data?.error?.code === 'ALREADY_APPLIED') {
+        toast.info('You have already applied to this job');
+        setAppliedJobIds(prev => new Set(prev).add(jobToApply.jobId));
+        setIsApplyModalOpen(false);
+      } else {
+        toast.error(error.response?.data?.error?.message || 'Failed to apply to job');
+      }
+    } finally {
+      setIsApplying(false);
+    }
   };
 
   const formatSalary = (min: number | null, max: number | null) => {
@@ -294,10 +337,19 @@ export const JobMatchesPage = () => {
                   </div>
 
                   {/* Actions */}
-                  <div className="ml-4">
+                  <div className="ml-4 flex flex-col gap-2">
                     <Button variant="primary" size="sm" onClick={() => handleViewDetails(job)}>
                       View Details
                     </Button>
+                    {appliedJobIds.has(job.jobId) ? (
+                      <div className="px-3 py-1.5 bg-green-100 text-green-700 text-sm font-medium rounded text-center">
+                        ✓ Applied
+                      </div>
+                    ) : (
+                      <Button variant="secondary" size="sm" onClick={() => handleApplyClick(job)}>
+                        Apply Now
+                      </Button>
+                    )}
                   </div>
                 </div>
               </Card>
@@ -520,6 +572,76 @@ export const JobMatchesPage = () => {
                 }}
               >
                 Close
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      {/* Apply Modal */}
+      <Modal
+        isOpen={isApplyModalOpen}
+        onClose={() => {
+          if (!isApplying) {
+            setIsApplyModalOpen(false);
+            setCoverLetter('');
+            setJobToApply(null);
+          }
+        }}
+        title="Apply to Job"
+        size="md"
+      >
+        {jobToApply && (
+          <div className="space-y-4">
+            {/* Job Info */}
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <h3 className="font-bold text-lg text-gray-900">{jobToApply.jobTitle}</h3>
+              <p className="text-gray-700">{jobToApply.company.name}</p>
+              <div className="mt-2">
+                <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${getScoreBgColor(jobToApply.overallScore)}`}>
+                  <span className={getScoreColor(jobToApply.overallScore)}>
+                    {Math.round(jobToApply.overallScore)}% Match
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            {/* Cover Letter */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Cover Letter (Optional)
+              </label>
+              <Textarea
+                value={coverLetter}
+                onChange={(e) => setCoverLetter(e.target.value)}
+                placeholder="Tell the employer why you're interested in this position and how your skills align with their needs..."
+                rows={6}
+                disabled={isApplying}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                A cover letter helps you stand out. Share your enthusiasm and relevant experience.
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-3 pt-4">
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  setIsApplyModalOpen(false);
+                  setCoverLetter('');
+                  setJobToApply(null);
+                }}
+                disabled={isApplying}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={handleApplySubmit}
+                disabled={isApplying}
+              >
+                {isApplying ? 'Submitting...' : 'Submit Application'}
               </Button>
             </div>
           </div>

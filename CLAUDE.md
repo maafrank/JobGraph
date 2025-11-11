@@ -8,7 +8,7 @@ JobGraph is a skills-based job matching platform where candidates interview once
 
 **Core Value Proposition**: Candidates take skill-specific interviews that are reused across all job applications, eliminating redundant assessments. Employers receive ranked candidates with verified skill scores.
 
-**Current Phase**: Phase 1 In Progress - All 5 backend services (Auth, Profile, Job, Skills, Matching) are complete and tested. Frontend candidate pages (Profile, Skills, Job Matches) are complete. Frontend employer pages: Company Profile and Job Posting Form are complete. Working on Job Management and Candidate Matches pages.
+**Current Phase**: Phase 1 In Progress - All 5 backend services (Auth, Profile, Job, Skills, Matching) are complete and tested. Job Applications feature is complete on both backend and frontend. Frontend candidate pages (Profile, Skills, Job Matches, My Applications) are complete. Frontend employer pages: Company Profile, Job Posting Form, and Candidate Matches are complete. Working on Job Management page.
 
 ## Architecture
 
@@ -77,7 +77,8 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - `interviews` → `interview_responses` (user's interview attempt and answers)
 - `user_skill_scores` (derived from completed interviews, used for matching)
 - `jobs` → `job_skills` (required skills with weights and minimum thresholds)
-- `job_matches` (candidate-job pairs with compatibility scores)
+- `job_matches` (candidate-job pairs with compatibility scores - employer-triggered)
+- `job_applications` (candidate-initiated applications with cover letter and status tracking)
 
 ### Service Implementation Details
 
@@ -120,6 +121,14 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - Companies table uses `company_size` column (not `size`)
 - Job status workflow: draft → active → closed/cancelled
 - Supports pagination, filtering, and search for job listings
+- **Job Applications** (Candidate-facing):
+  - `POST /api/v1/jobs/:jobId/apply` - Apply to a job (cover letter optional)
+  - `GET /api/v1/jobs/applications` - Get my applications (pagination, status filtering)
+  - `GET /api/v1/jobs/applications/:applicationId` - Get application details
+  - `DELETE /api/v1/jobs/applications/:applicationId` - Withdraw application (submitted/under_review only)
+  - Application status: submitted → under_review → interviewing → accepted/rejected/withdrawn
+  - Duplicate prevention via UNIQUE(job_id, user_id) constraint
+  - Applications LEFT JOIN with job_matches to show match scores
 
 **Matching Service** (Port 3004):
 - **Enhanced holistic matching algorithm** calculates comprehensive compatibility scores
@@ -140,6 +149,9 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
   - Returns candidates sorted by match_rank
   - Includes skill breakdown with individual scores
   - Shows overall match score and candidate details
+  - **Enhanced with application data**: LEFT JOIN job_applications table
+  - Includes hasApplied, applicationId, applicationStatus, appliedAt fields
+  - Source tracking: 'matched' (matched only), 'applied' (applied only), 'both' (both)
 - GET /api/v1/matching/candidate/matches - Candidate views job matches
   - Returns all jobs matched to the candidate (stored matches only)
   - Shows match score, rank, and job details
@@ -156,6 +168,13 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - PUT /api/v1/matching/matches/:matchId/status - Update match status
   - **IMPORTANT**: Valid statuses must match database constraint: `matched`, `viewed`, `contacted`, `shortlisted`, `rejected`, `hired`
   - Employer-only action
+- **Application Management** (Employer-facing):
+  - `GET /api/v1/matching/applications/:applicationId` - View full application details
+    - Includes cover letter, candidate profile, match score, skill breakdown
+    - Auto-marks application as reviewed (sets reviewed_at timestamp)
+  - `PUT /api/v1/matching/applications/:applicationId/status` - Update application status
+    - Employer-only action
+    - Valid statuses: submitted, under_review, interviewing, accepted, rejected
 - Algorithm behavior:
   - Missing required skills significantly lower match scores (penalty system)
   - Optional skills add bonus points if candidate has them
@@ -175,9 +194,10 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - `testRedisConnection()` - Health check
 
 **Types** (`@jobgraph/common/types`):
-- `User`, `CandidateProfile`, `Skill`, `Job` - Database models
+- `User`, `CandidateProfile`, `Skill`, `Job`, `JobApplication` - Database models
 - `ApiResponse<T>` - Standard API response wrapper
 - `JwtPayload` - JWT token structure
+- `JobApplication` - Application model with status tracking (submitted, under_review, interviewing, accepted, rejected, withdrawn)
 
 **Utils** (`@jobgraph/common/utils`):
 - `hashPassword(password)` - Bcrypt hash with 10 rounds
@@ -338,8 +358,27 @@ The frontend handles field name conversion between backend (snake_case) and disp
      - Status badges (Missing, Below Minimum, Optional, etc.)
    - Displays job details: location, salary range, employment type, experience level, company info
    - Empty state when no jobs available or filters exclude all jobs
+   - **Apply to Jobs** ✅:
+     - Apply button on each job card
+     - Apply modal with optional cover letter (textarea)
+     - "✓ Applied" badge shown after successful application
+     - Duplicate application prevention
+     - Success/error toast notifications
 
-4. **CompanyProfilePage** (`/employer/company`) - Complete CRUD for employer company profiles:
+4. **MyApplicationsPage** (`/candidate/applications`) - Track all job applications:
+   - View all submitted applications with pagination
+   - Filter by application status (submitted, under_review, interviewing, accepted, rejected, withdrawn)
+   - Status badges with color coding (blue=submitted, yellow=under_review, purple=interviewing, green=accepted, red=rejected, gray=withdrawn)
+   - Display match score if calculated (via LEFT JOIN with job_matches)
+   - Application details modal showing:
+     - Cover letter
+     - Application timeline (applied, reviewed, updated dates)
+     - Job and company details
+     - Match score and ranking
+   - Withdraw application functionality (only for submitted/under_review status)
+   - Empty state with link to browse jobs
+
+5. **CompanyProfilePage** (`/employer/company`) - Complete CRUD for employer company profiles:
    - First-time setup flow: auto-enables edit mode if employer has no company (404 detection)
    - View/Edit mode toggle with seamless transitions
    - Company details: name (required), description, industry, size, website, location (city, state, country)
@@ -352,7 +391,7 @@ The frontend handles field name conversion between backend (snake_case) and disp
    - Frontend types updated to match: `Company` interface with `companyId`, `name`, `companySize`, `location: {city, state, country}`
    - All CRUD operations via `companyService` using Profile Service API (port 3001)
 
-5. **JobPostingPage** (`/employer/jobs/new` and `/employer/jobs/:id/edit`) - Complete CRUD for job postings:
+6. **JobPostingPage** (`/employer/jobs/new` and `/employer/jobs/:id/edit`) - Complete CRUD for job postings:
    - **Job Details**: title, description, requirements, responsibilities (multi-line textarea)
    - **Location & Type**: city, state, country, remote option (onsite/remote/hybrid/flexible)
    - **Employment Info**: employment type (full-time/part-time/contract/internship), experience level (entry/mid/senior/lead/executive)
@@ -371,6 +410,31 @@ The frontend handles field name conversion between backend (snake_case) and disp
    - **Database Schema**: Added `responsibilities TEXT` column to jobs table (migration applied)
    - **Type Safety**: JobFormData and JobSkill interfaces with proper camelCase field names
    - All CRUD operations via `jobService` using Job Service API (port 3002)
+
+7. **CandidateMatchesPage** (`/employer/jobs/:jobId/candidates`) - View and manage candidates:
+   - View ranked candidates for a specific job (sorted by match_rank)
+   - Filter tabs: All / Applied / Matched Only
+   - Candidate cards showing:
+     - Match score with color-coded badge (green ≥90%, blue ≥80%, yellow ≥70%)
+     - Rank number (e.g., #1, #2, #3)
+     - Candidate name, headline, location, years of experience
+     - Skill match breakdown with scores vs thresholds
+   - **Application Integration** ✅:
+     - Application status badges (📝 badge): submitted, under_review, interviewing, accepted, rejected
+     - Match status badge (🎯 badge): matched, viewed, contacted, shortlisted, rejected, hired
+     - Source badge: "✓ Applied & Matched" or "✓ Applied"
+     - Dates displayed: applied date, contacted date, reviewed date
+     - Filter by source (all, applied only, matched only)
+     - Candidate count: total and applied
+   - **View Application button** (for candidates who applied):
+     - Opens application details modal
+     - Shows cover letter, match score, candidate profile summary
+     - Full skill breakdown with scores and thresholds
+     - Application timeline (applied, reviewed, updated)
+     - Update application status dropdown (submitted → under_review → interviewing → accepted/rejected)
+   - Contact candidate button (updates match status to 'contacted')
+   - Update match status dropdown (matched → viewed → contacted → shortlisted → rejected/hired)
+   - Empty state with link to calculate matches
 
 ### Enhanced Matching Algorithm
 

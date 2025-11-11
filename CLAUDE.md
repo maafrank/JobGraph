@@ -8,11 +8,25 @@ JobGraph is a skills-based job matching platform where candidates interview once
 
 **Core Value Proposition**: Candidates take skill-specific interviews that are reused across all job applications, eliminating redundant assessments. Employers receive ranked candidates with verified skill scores.
 
-**Current Phase**: Phase 1 In Progress - Auth, Profile, Job, and Skills services are complete and tested. Ready to continue with Matching Service.
+**Current Phase**: Phase 1 In Progress - All 5 backend services (Auth, Profile, Job, Skills, Matching) are complete and tested. Frontend authentication and layout are complete. Working on candidate and employer feature pages.
 
 ## Architecture
 
-### Monorepo Structure
+### Project Structure
+
+The project is organized as:
+
+```
+JobGraph/
+├── backend/           # Backend microservices (npm workspace)
+│   ├── common/       # Shared package (@jobgraph/common)
+│   └── services/     # Individual microservices
+├── frontend/         # React + TypeScript frontend
+├── scripts/          # Database setup and test scripts
+└── docs/            # Documentation
+```
+
+### Backend Monorepo Structure
 
 The backend uses npm workspaces with a shared common package:
 
@@ -159,6 +173,103 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - `errorResponse(code, message, details?)` - Format error response
 - `AppError` - Custom error class with statusCode, code, message, details
 
+### Frontend Architecture
+
+The frontend is a React 19 single-page application built with Vite:
+
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── common/       # Reusable UI components (Button, Input, Card, etc.)
+│   │   └── layout/       # Layout components (Navbar, Layout, ProtectedRoute)
+│   ├── contexts/         # Zustand stores (AuthContext)
+│   ├── pages/           # Page components
+│   │   ├── auth/        # Login, Register
+│   │   ├── candidate/   # Candidate dashboard and pages
+│   │   └── employer/    # Employer dashboard and pages
+│   ├── services/        # API client and service layers
+│   ├── types/           # TypeScript type definitions
+│   ├── hooks/           # Custom React hooks
+│   ├── utils/           # Utility functions
+│   └── App.tsx          # Main app component with routes
+├── public/              # Static assets
+└── package.json
+```
+
+**Key Frontend Technologies:**
+- **React 19** with TypeScript for type safety
+- **Vite** for fast development and hot module replacement
+- **Tailwind CSS v4** with @theme directive and CSS variables
+- **React Router v7** for client-side routing with protected routes
+- **Zustand** for global state management (auth, toasts)
+- **React Query** for server state management and caching
+- **Axios** with interceptors for API calls and automatic token refresh
+
+**API Client Configuration:**
+The frontend uses 5 separate Axios instances, one for each microservice:
+```typescript
+// Auth Service (Port 3000)
+const authApi = axios.create({ baseURL: 'http://localhost:3000' });
+
+// Profile Service (Port 3001)
+const profileApi = axios.create({ baseURL: 'http://localhost:3001' });
+
+// Job Service (Port 3002)
+const jobApi = axios.create({ baseURL: 'http://localhost:3002' });
+
+// Skills Service (Port 3003)
+const skillsApi = axios.create({ baseURL: 'http://localhost:3003' });
+
+// Matching Service (Port 3004)
+const matchingApi = axios.create({ baseURL: 'http://localhost:3004' });
+```
+
+**Authentication Flow:**
+1. User logs in via LoginPage → calls authService.login()
+2. Backend returns access token (15 min) and refresh token (7 days)
+3. Tokens stored in localStorage via setTokens()
+4. Auth state persisted in Zustand store with user object
+5. All API requests include `Authorization: Bearer <token>` header via Axios interceptor
+6. On 401 response, refresh interceptor automatically tries to refresh token
+7. If refresh succeeds, retry original request with new token
+8. If refresh fails, clear tokens and redirect to login
+
+**Protected Routes:**
+Routes use ProtectedRoute wrapper to check authentication and role:
+```typescript
+<Route path="/candidate/dashboard" element={
+  <ProtectedRoute requiredRole="candidate">
+    <CandidateDashboard />
+  </ProtectedRoute>
+} />
+```
+
+**Component Library:**
+Built 8 reusable components following consistent API patterns:
+- **Button**: 4 variants (primary, secondary, danger, ghost), 3 sizes, loading state
+- **Input**: Text/email/password with label, error, helper text, show/hide password
+- **Textarea**: Multi-line input with same features
+- **Select**: Dropdown with options array
+- **Card**: Content container with optional title/subtitle
+- **LoadingSpinner**: 3 sizes (sm, md, lg)
+- **Modal**: Overlay modal with 4 sizes, backdrop click to close
+- **Toast**: Notification system with 4 types (success, error, info, warning), auto-dismiss after 5s
+
+**UX Features Implemented:**
+- Password visibility toggle with eye/eye-slash icons (correct logic: eye = visible)
+- Clickable logo navigation from auth pages to homepage
+- Homepage auto-redirects authenticated users to their dashboard
+- Form validation with real-time error display
+- Toast notifications for success/error feedback
+- Loading states on buttons during async operations
+
+**Type Safety:**
+All API responses, entities, and form data have TypeScript type definitions in `types/index.ts`:
+- User, AuthResponse, CandidateProfile, Company, Job, Skill, JobMatch
+- LoginFormData, RegisterFormData
+- ApiResponse<T> wrapper matching backend format
+
 ### Matching Algorithm
 
 The core algorithm calculates job match scores:
@@ -227,6 +338,16 @@ npm run dev:skill             # Start skills service on port 3003
 npm run dev:matching          # Start matching service on port 3004
 npm run dev:interview         # Start interview service (Phase 2+)
 npm run dev:notification      # Start notification service (Phase 2+)
+```
+
+**Frontend Development**:
+```bash
+# From frontend directory
+npm install                    # Install all dependencies
+npm run dev                   # Start Vite dev server on port 5173
+npm run build                 # Build for production
+npm run preview               # Preview production build locally
+npm run lint                  # Lint code with ESLint
 ```
 
 **Docker & Database**:
@@ -423,13 +544,14 @@ See [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) for complete details.
 
 **Phase 0**: Complete ✅ - Foundation established (Docker, PostgreSQL, Redis, Common package)
 
-**Phase 1 (Current)**: MVP Backend Complete ✅ - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
+**Phase 1 (Current)**: MVP Backend Complete ✅, Frontend In Progress 🔄 - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
 - ✅ Auth Service (local auth with JWT) - `/api/v1/auth/*` on port 3000
 - ✅ Profile Service (CRUD operations + manual skill scores) - `/api/v1/profiles/*` on port 3001
 - ✅ Job Service (posting and management) - `/api/v1/jobs/*` on port 3002
 - ✅ Skills Service (browsing and search) - `/api/v1/skills/*` on port 3003
 - ✅ Matching Service (weighted matching algorithm) - `/api/v1/matching/*` on port 3004
-- 🔄 Frontend (React + TypeScript) - Next to implement
+- ✅ Frontend Authentication & Layout - Login, register, common components, protected routes
+- 🔄 Frontend Feature Pages - Candidate/employer dashboards and feature pages
 
 **Phase 2**: Interview system with AI scoring
 **Phase 3**: Search, analytics, enhanced features

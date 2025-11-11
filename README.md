@@ -37,15 +37,21 @@ JobGraph is an intelligent job matching platform that revolutionizes hiring by f
 ## Technology Stack
 
 ### Frontend
-- React + TypeScript
-- TailwindCSS
-- React Query for state management
+- React 19 + TypeScript
+- Vite (build tool)
+- Tailwind CSS v4
+- React Router v7 (client-side routing)
+- Zustand (state management)
+- React Query (@tanstack/react-query) for server state
+- Axios (HTTP client with interceptors)
 
 ### Backend
-- Node.js / Python (FastAPI)
+- Node.js + TypeScript
+- Express.js (microservices framework)
 - PostgreSQL (primary database)
 - Redis (caching)
-- AWS ECS (container orchestration)
+- npm workspaces (monorepo structure)
+- JWT authentication (local, migrating to Cognito in Phase 4)
 
 ### AWS Services
 - **Compute**: ECS Fargate, Lambda
@@ -75,7 +81,75 @@ JobGraph is an intelligent job matching platform that revolutionizes hiring by f
 
 ## Getting Started
 
-(Coming soon: Setup instructions, development environment, and deployment guide)
+### Prerequisites
+- Node.js 18+
+- Docker Desktop
+- PostgreSQL (via Docker)
+- Redis (via Docker)
+
+### Backend Setup
+
+```bash
+# 1. Install dependencies
+cd backend && npm install
+
+# 2. Start Docker services (PostgreSQL, Redis, Adminer)
+docker-compose up -d
+
+# 3. Load database schema and seed data
+./scripts/setup-database.sh
+
+# 4. Build common package
+cd backend/common && npm run build
+
+# 5. Start all backend services
+cd backend
+npm run dev:auth      # Port 3000
+npm run dev:profile   # Port 3001
+npm run dev:job       # Port 3002
+npm run dev:skill     # Port 3003
+npm run dev:matching  # Port 3004
+```
+
+### Frontend Setup
+
+```bash
+# 1. Install dependencies
+cd frontend && npm install
+
+# 2. Start development server
+npm run dev
+
+# Frontend runs on http://localhost:5173
+```
+
+### Test Accounts
+
+After seeding, these test accounts are available:
+
+**Candidate:**
+- Email: candidate@test.com
+- Password: Test123!
+
+**Employer:**
+- Email: employer@test.com
+- Password: Test123!
+
+### Running Tests
+
+```bash
+# Unit tests
+cd backend && npm test
+
+# API integration tests (requires services running)
+./scripts/test-phase1.sh  # All 40 tests
+
+# Individual service tests
+./scripts/test-auth-api.sh
+./scripts/test-profile-api.sh
+./scripts/test-job-api.sh
+./scripts/test-skills-api.sh
+```
 
 ## Architecture Overview
 

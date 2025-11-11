@@ -236,67 +236,91 @@
 
 ---
 
-## 7. Frontend MVP (Week 9-10)
+## 7. Frontend MVP (Week 9-10) 🔄 IN PROGRESS
 
-### 7.1 Setup & Authentication
-- [ ] Create React + TypeScript + Vite project
-- [ ] Install dependencies (React Router, Axios, React Query, etc.)
-- [ ] Configure Tailwind CSS or Material-UI
-- [ ] Create API client with Axios
-- [ ] Auth context for JWT token management
-- [ ] Login page
-- [ ] Registration page (candidate/employer selection)
-- [ ] Protected route wrapper
+### 7.1 Setup & Authentication ✅ COMPLETE
+- [x] Create React + TypeScript + Vite project
+- [x] Install dependencies (React Router, Axios, React Query, Tailwind CSS)
+- [x] Configure Tailwind CSS
+- [x] Project structure setup (pages, components, services, contexts, types)
+- [x] Create API client with Axios interceptors
+- [x] Auth context for JWT token management (access + refresh tokens)
+- [x] Login page with form validation
+- [x] Registration page (candidate/employer selection)
+- [x] Protected route wrapper component
+- [x] Logout functionality
 
-### 7.2 Candidate Pages
-- [ ] Candidate dashboard
+### 7.2 Common Components & Layout ✅ COMPLETE
+- [x] Layout component with navigation
+- [x] Navigation bar (responsive, role-based menu)
+- [x] Footer component
+- [x] Loading spinner component
+- [x] Button component (variants: primary, secondary, danger, ghost)
+- [x] Input component (text, email, password, with validation)
+- [x] Textarea component
+- [x] Select/Dropdown component
+- [x] Modal component (reusable)
+- [x] Toast/Alert notification system (Zustand-based)
+- [x] Card component for content sections
+- [x] Form validation in Login/Register pages
+- [x] Password visibility toggle with eye icons
+- [x] Clickable logo navigation to homepage
+- [x] Homepage with automatic redirect for authenticated users
+
+### 7.3 Candidate Pages
+- [ ] Candidate dashboard (overview stats, quick actions)
 - [ ] Profile management page
-  - [ ] Edit basic info
-  - [ ] Add/edit education
-  - [ ] Add/edit work experience
-- [ ] Resume upload page
-  - [ ] File picker (PDF/DOCX only)
-  - [ ] Upload progress indicator
-  - [ ] View parsed data
-  - [ ] Answer follow-up questions
+  - [ ] View/Edit basic info (headline, summary, location)
+  - [ ] Add/edit/delete education entries
+  - [ ] Add/edit/delete work experience entries
+  - [ ] Profile visibility settings
 - [ ] Skills management page
-  - [ ] Browse skills by category
-  - [ ] Add skills with self-assessed scores
+  - [ ] Browse skills by category (tabs or filters)
+  - [ ] Search skills by name
+  - [ ] Add skills with manual scores (0-100 slider)
+  - [ ] Edit/delete existing skill scores
   - [ ] View skill expiry dates
 - [ ] Job matches page
-  - [ ] View matched jobs
-  - [ ] See match score and rank
-  - [ ] View job details
+  - [ ] View matched jobs (sorted by match score)
+  - [ ] See match score, rank, and job details
+  - [ ] Filter by location, remote, etc.
+  - [ ] Job detail modal/page
 
-### 7.3 Employer Pages
-- [ ] Employer dashboard
+### 7.4 Employer Pages
+- [ ] Employer dashboard (company stats, recent jobs)
 - [ ] Company profile page
+  - [ ] Create company profile (first-time flow)
+  - [ ] View/Edit company details
+  - [ ] Company size, industry, website, location
 - [ ] Job posting form
-  - [ ] Job details
-  - [ ] Add required skills with weights
-  - [ ] Set minimum score thresholds
+  - [ ] Job details (title, description, requirements)
+  - [ ] Location, remote, salary range
+  - [ ] Employment type, experience level
+  - [ ] Add required skills with weights (0-100)
+  - [ ] Set minimum score thresholds per skill
+  - [ ] Save as draft or publish
 - [ ] Job management page
-  - [ ] List posted jobs
-  - [ ] Edit/close jobs
-  - [ ] Trigger matching
-- [ ] Candidate matches page
-  - [ ] View ranked candidates for each job
-  - [ ] See skill breakdown
-  - [ ] Contact candidate button
-  - [ ] Update match status
+  - [ ] List all posted jobs (active/draft/closed)
+  - [ ] Edit/close/reopen jobs
+  - [ ] Trigger matching calculation
+  - [ ] View match statistics
+- [ ] Candidate matches page (per job)
+  - [ ] View ranked candidates for selected job
+  - [ ] See overall match score and rank
+  - [ ] Skill-by-skill breakdown table
+  - [ ] Contact candidate button (updates status)
+  - [ ] Update match status dropdown
+  - [ ] Filter by match status
 
-### 7.4 Common Components
-- [ ] Navigation bar
-- [ ] Footer
-- [ ] Loading spinners
-- [ ] Error messages/toasts
-- [ ] Confirmation modals
-- [ ] Form validation
-
-### 7.5 Testing
-- [ ] Manual testing of all user flows
-- [ ] Responsive design testing
-- [ ] Browser compatibility testing
+### 7.5 Testing & Polish
+- [ ] Manual testing of candidate registration → profile → skills → view matches
+- [ ] Manual testing of employer registration → company → job posting → matching → view candidates
+- [ ] Responsive design testing (mobile, tablet, desktop)
+- [ ] Form validation on all inputs
+- [ ] Error handling for API failures
+- [ ] Loading states for async operations
+- [ ] Browser compatibility (Chrome, Firefox, Safari)
+- [ ] Accessibility basics (keyboard navigation, ARIA labels)
 
 ---
 
@@ -401,7 +425,9 @@ Once all Phase 1 items are complete, the MVP is ready for Phase 2, which will in
 ✅ **4. Skills Management**: Complete - Skills API and manual skill score management
 ✅ **5. Job Service**: Complete - Job posting and skills management
 ✅ **6. Matching Service**: Complete - Core matching algorithm with weighted scoring
+✅ **7. Frontend Authentication & Layout**: COMPLETE - React app with auth flow and common components
 ⏳ **3. File Upload & Resume Parsing**: Not started (deferred to Phase 2)
+🔄 **7. Frontend Pages**: In Progress - Dashboard and feature pages needed
 
 **Services Running:**
 - Auth Service (Port 3000) - `/api/v1/auth/*`
@@ -409,16 +435,30 @@ Once all Phase 1 items are complete, the MVP is ready for Phase 2, which will in
 - Job Service (Port 3002) - `/api/v1/jobs/*`
 - Skills Service (Port 3003) - `/api/v1/skills/*`
 - Matching Service (Port 3004) - `/api/v1/matching/*`
+- Frontend (Port 5173) - React + TypeScript + Vite
 
 **Test Coverage:**
 - 40 tests in `test-phase1.sh` covering all 5 services (all passing ✅)
 - Individual test scripts: `test-auth-api.sh`, `test-profile-api.sh`, `test-job-api.sh`, `test-skills-api.sh`, `test-company-api.sh`
 
 **Core Backend MVP Complete!** All 5 backend microservices are implemented and operational.
+**Frontend Foundation Complete!** Authentication, layout, and common components are working.
+
+**Frontend Features Implemented:**
+- ✅ Login and registration with form validation
+- ✅ Password visibility toggle with eye icons
+- ✅ JWT token management (access + refresh tokens)
+- ✅ Protected routes with role-based access control
+- ✅ Zustand state management for auth
+- ✅ Toast notification system
+- ✅ 8 reusable components (Button, Input, Card, Modal, etc.)
+- ✅ Responsive navbar with role-based menus
+- ✅ Homepage with auto-redirect for authenticated users
+- ✅ Test credentials displayed on login page
 
 **Next Steps:**
-1. **Frontend MVP (Week 9-10)** - React application with authentication and basic flows ← RECOMMENDED NEXT
+1. **Frontend Pages (Week 9-10)** - Candidate/Employer dashboards and feature pages ← CURRENT
 2. **Integration & Testing (Week 11)** - E2E tests and polish
 3. **Phase 2** - Interview System with AI-powered evaluation
 
-**Recommended**: Proceed with **Frontend MVP** to create the user interface for the complete backend system.
+**Recommended**: Continue with **Frontend Pages** (sections 7.3 and 7.4) to build out the candidate and employer experiences.

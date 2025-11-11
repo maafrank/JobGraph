@@ -257,6 +257,7 @@ CREATE TABLE jobs (
     title VARCHAR(200) NOT NULL,
     description TEXT NOT NULL,
     requirements TEXT,
+    responsibilities TEXT,
     city VARCHAR(100),
     state VARCHAR(100),
     country VARCHAR(100),

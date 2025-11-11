@@ -329,13 +329,22 @@
   - [x] Create company profile (first-time flow)
   - [x] View/Edit company details
   - [x] Company size, industry, website, location
-- [ ] Job posting form
-  - [ ] Job details (title, description, requirements)
-  - [ ] Location, remote, salary range
-  - [ ] Employment type, experience level
-  - [ ] Add required skills with weights (0-100)
-  - [ ] Set minimum score thresholds per skill
-  - [ ] Save as draft or publish
+- [x] Job posting form ✅ COMPLETE
+  - [x] Job details (title, description, requirements, responsibilities)
+  - [x] Location, remote option (onsite/remote/hybrid/flexible), salary range
+  - [x] Employment type (full-time, part-time, contract, internship)
+  - [x] Experience level (entry, mid, senior, lead, executive)
+  - [x] Add required/optional skills with weights (0-100 slider)
+  - [x] Set minimum score thresholds per skill (0-100 slider)
+  - [x] Visual proficiency indicators on sliders
+  - [x] Save as draft or publish (active status)
+  - [x] Edit existing jobs with pre-populated fields
+  - [x] Skills displayed separately (Required vs Optional)
+  - [x] Color-coded skill badges and status indicators
+  - [x] Backend weight conversion (percentage ↔ decimal 0-1)
+  - [x] Field name mapping (camelCase frontend ↔ snake_case database)
+  - [x] Database migration: Added responsibilities column to jobs table
+  - [x] All CRUD operations for job skills (add/edit/remove)
 - [ ] Job management page
   - [ ] List all posted jobs (active/draft/closed)
   - [ ] Edit/close/reopen jobs

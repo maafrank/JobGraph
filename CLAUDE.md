@@ -8,7 +8,7 @@ JobGraph is a skills-based job matching platform where candidates interview once
 
 **Core Value Proposition**: Candidates take skill-specific interviews that are reused across all job applications, eliminating redundant assessments. Employers receive ranked candidates with verified skill scores.
 
-**Current Phase**: Phase 1 In Progress - All 5 backend services (Auth, Profile, Job, Skills, Matching) are complete and tested. Frontend authentication, layout, and Profile Management page are complete. Working on Skills Management and other candidate/employer feature pages.
+**Current Phase**: Phase 1 In Progress - All 5 backend services (Auth, Profile, Job, Skills, Matching) are complete and tested. Frontend candidate pages (Profile, Skills, Job Matches) are complete. Frontend employer pages: Company Profile and Job Posting Form are complete. Working on Job Management and Candidate Matches pages.
 
 ## Architecture
 
@@ -352,6 +352,26 @@ The frontend handles field name conversion between backend (snake_case) and disp
    - Frontend types updated to match: `Company` interface with `companyId`, `name`, `companySize`, `location: {city, state, country}`
    - All CRUD operations via `companyService` using Profile Service API (port 3001)
 
+5. **JobPostingPage** (`/employer/jobs/new` and `/employer/jobs/:id/edit`) - Complete CRUD for job postings:
+   - **Job Details**: title, description, requirements, responsibilities (multi-line textarea)
+   - **Location & Type**: city, state, country, remote option (onsite/remote/hybrid/flexible)
+   - **Employment Info**: employment type (full-time/part-time/contract/internship), experience level (entry/mid/senior/lead/executive)
+   - **Compensation**: salary range (min/max), currency selector (USD, EUR, GBP, CAD)
+   - **Skill Requirements**: Add required and optional skills with weights and minimum score thresholds
+     - Modal form with skill dropdown (browse all 35+ skills)
+     - Weight slider (0-100%) showing visual proficiency indicator
+     - Minimum score slider (0-100) with proficiency labels (Beginner/Intermediate/Advanced/Expert)
+     - Required vs Optional toggle
+     - Visual feedback: color-coded proficiency bands on sliders
+   - **Skill Management**: Edit existing skills, remove skills, see all skills separated by Required vs Optional
+   - **Save Options**: Save as Draft or Publish (sets status to 'active')
+   - **Edit Mode**: Pre-populated fields when editing existing job, loads existing skills
+   - **Field Mapping**: Frontend camelCase ↔ Backend camelCase API ↔ Database snake_case
+   - **Weight Conversion**: Frontend displays 0-100%, backend converts to/from DECIMAL(3,2) 0.0-1.0 for database
+   - **Database Schema**: Added `responsibilities TEXT` column to jobs table (migration applied)
+   - **Type Safety**: JobFormData and JobSkill interfaces with proper camelCase field names
+   - All CRUD operations via `jobService` using Job Service API (port 3002)
+
 ### Enhanced Matching Algorithm
 
 The matching algorithm uses a **holistic scoring approach** that considers skills, profile factors, education, and work experience:
@@ -691,7 +711,7 @@ See [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) for complete details.
 
 **Phase 0**: Complete ✅ - Foundation established (Docker, PostgreSQL, Redis, Common package)
 
-**Phase 1 (Current)**: MVP Backend Complete ✅, Frontend Candidate Pages Complete ✅, Company Profile Complete ✅ - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
+**Phase 1 (Current)**: MVP Backend Complete ✅, Frontend Candidate Pages Complete ✅, Employer Pages In Progress 🔄 - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
 - ✅ Auth Service (local auth with JWT) - `/api/v1/auth/*` on port 3000
 - ✅ Profile Service (CRUD operations + manual skill scores + company profiles) - `/api/v1/profiles/*` on port 3001
 - ✅ Job Service (posting and management) - `/api/v1/jobs/*` on port 3002
@@ -699,8 +719,10 @@ See [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) for complete details.
 - ✅ Matching Service (enhanced holistic algorithm) - `/api/v1/matching/*` on port 3004
 - ✅ Frontend Authentication & Layout - Login, register, common components, protected routes
 - ✅ Frontend Candidate Pages - Profile, Skills, Job Matches (browse all jobs with match scores)
-- ✅ Company Profile Page - First-time setup flow, view/edit company details
-- 🔄 Frontend Employer Pages - Job posting, job management, candidate matches (next priority)
+- ✅ Employer Company Profile - First-time setup flow, view/edit company details
+- ✅ Employer Job Posting - Create/edit jobs with skill requirements, weights, and thresholds
+- 🔄 Employer Job Management - List jobs, edit, close, trigger matching (next priority)
+- 🔄 Employer Candidate Matches - View ranked candidates per job (next priority)
 
 **Phase 2**: Interview system with AI scoring
 **Phase 3**: Search, analytics, enhanced features

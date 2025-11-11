@@ -1,5 +1,6 @@
+import { Link } from 'react-router-dom';
 import { Layout } from '../../components/layout';
-import { Card } from '../../components/common';
+import { Card, Button } from '../../components/common';
 import { useAuthStore } from '../../contexts/AuthContext';
 
 export const EmployerDashboard = () => {
@@ -8,13 +9,18 @@ export const EmployerDashboard = () => {
   return (
     <Layout>
       <div className="space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">
-            Welcome back, {user?.first_name}!
-          </h1>
-          <p className="mt-2 text-gray-600">
-            Here's an overview of your recruitment activity
-          </p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">
+              Welcome back, {user?.first_name}!
+            </h1>
+            <p className="mt-2 text-gray-600">
+              Here's an overview of your recruitment activity
+            </p>
+          </div>
+          <Link to="/employer/jobs/new">
+            <Button>+ Post New Job</Button>
+          </Link>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

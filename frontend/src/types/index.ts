@@ -125,42 +125,50 @@ export interface UserSkillScore {
 
 // Job types
 export type JobStatus = 'draft' | 'active' | 'closed' | 'cancelled';
-export type EmploymentType = 'full_time' | 'part_time' | 'contract' | 'internship';
+export type EmploymentType = 'full-time' | 'part-time' | 'contract' | 'internship';
 export type ExperienceLevel = 'entry' | 'mid' | 'senior' | 'lead' | 'executive';
+export type RemoteOption = 'remote' | 'hybrid' | 'onsite' | 'flexible';
 
 export interface Job {
-  job_id: string;
-  company_id: string;
+  jobId: string;
+  companyId: string;
+  postedBy: string;
   title: string;
   description: string;
   requirements: string | null;
-  responsibilities: string | null;
+  responsibilities?: string | null;
   city: string | null;
   state: string | null;
   country: string | null;
-  remote_option: boolean;
-  employment_type: EmploymentType;
-  experience_level: ExperienceLevel;
-  salary_min: number | null;
-  salary_max: number | null;
-  salary_currency: string | null;
+  remoteOption: RemoteOption;
+  employmentType: EmploymentType;
+  experienceLevel: ExperienceLevel;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryCurrency: string | null;
   status: JobStatus;
-  created_by: string;
-  created_at: string;
-  updated_at: string;
-  company_name?: string;
-  skills?: JobSkill[];
+  views?: number;
+  requiredSkillsCount?: number;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string | null;
+  companyName?: string;
+  companyDescription?: string;
+  companyIndustry?: string;
+  companySize?: string;
+  companyWebsite?: string;
+  requiredSkills?: JobSkill[];
 }
 
 export interface JobSkill {
-  job_skill_id: string;
-  job_id: string;
-  skill_id: string;
+  jobSkillId: string;
+  jobId: string;
+  skillId: string;
   weight: number;
-  minimum_score: number;
+  minimumScore: number;
   required: boolean;
-  created_at: string;
-  skill_name?: string;
+  createdAt: string;
+  skillName?: string;
   category?: string;
 }
 
@@ -243,7 +251,7 @@ export interface JobFormData {
   city: string;
   state: string;
   country: string;
-  remote_option: boolean;
+  remote_option: RemoteOption;
   employment_type: EmploymentType;
   experience_level: ExperienceLevel;
   salary_min: number | null;

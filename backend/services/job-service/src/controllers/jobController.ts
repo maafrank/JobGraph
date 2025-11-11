@@ -24,6 +24,7 @@ export async function createJob(req: Request, res: Response): Promise<void> {
       title,
       description,
       requirements,
+      responsibilities,
       city,
       state,
       country,
@@ -60,18 +61,18 @@ export async function createJob(req: Request, res: Response): Promise<void> {
     // Create job
     const result = await query(
       `INSERT INTO jobs (
-        company_id, posted_by, title, description, requirements,
+        company_id, posted_by, title, description, requirements, responsibilities,
         city, state, country, remote_option,
         salary_min, salary_max, salary_currency,
         employment_type, experience_level, expires_at, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 'draft')
-      RETURNING job_id, company_id, posted_by, title, description, requirements,
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'draft')
+      RETURNING job_id, company_id, posted_by, title, description, requirements, responsibilities,
                 city, state, country, remote_option,
                 salary_min, salary_max, salary_currency,
                 employment_type, experience_level, status,
                 created_at, updated_at, expires_at`,
       [
-        companyId, userId, title, description, requirements,
+        companyId, userId, title, description, requirements, responsibilities,
         city, state, country, remoteOption,
         salaryMin, salaryMax, salaryCurrency || 'USD',
         employmentType, experienceLevel, expiresAt
@@ -88,6 +89,7 @@ export async function createJob(req: Request, res: Response): Promise<void> {
         title: job.title,
         description: job.description,
         requirements: job.requirements,
+        responsibilities: job.responsibilities,
         city: job.city,
         state: job.state,
         country: job.country,
@@ -256,7 +258,7 @@ export async function getJobById(req: Request, res: Response): Promise<void> {
                   'skillId', s.skill_id,
                   'skillName', s.name,
                   'category', s.category,
-                  'weight', js.weight,
+                  'weight', js.weight * 100,
                   'minimumScore', js.minimum_score,
                   'required', js.required
                 ) ORDER BY js.weight DESC
@@ -294,6 +296,7 @@ export async function getJobById(req: Request, res: Response): Promise<void> {
         title: job.title,
         description: job.description,
         requirements: job.requirements,
+        responsibilities: job.responsibilities,
         city: job.city,
         state: job.state,
         country: job.country,
@@ -332,6 +335,7 @@ export async function updateJob(req: Request, res: Response): Promise<void> {
       title,
       description,
       requirements,
+      responsibilities,
       city,
       state,
       country,
@@ -366,22 +370,23 @@ export async function updateJob(req: Request, res: Response): Promise<void> {
        SET title = COALESCE($2, title),
            description = COALESCE($3, description),
            requirements = COALESCE($4, requirements),
-           city = COALESCE($5, city),
-           state = COALESCE($6, state),
-           country = COALESCE($7, country),
-           remote_option = COALESCE($8, remote_option),
-           salary_min = COALESCE($9, salary_min),
-           salary_max = COALESCE($10, salary_max),
-           salary_currency = COALESCE($11, salary_currency),
-           employment_type = COALESCE($12, employment_type),
-           experience_level = COALESCE($13, experience_level),
-           status = COALESCE($14, status),
-           expires_at = COALESCE($15, expires_at),
+           responsibilities = COALESCE($5, responsibilities),
+           city = COALESCE($6, city),
+           state = COALESCE($7, state),
+           country = COALESCE($8, country),
+           remote_option = COALESCE($9, remote_option),
+           salary_min = COALESCE($10, salary_min),
+           salary_max = COALESCE($11, salary_max),
+           salary_currency = COALESCE($12, salary_currency),
+           employment_type = COALESCE($13, employment_type),
+           experience_level = COALESCE($14, experience_level),
+           status = COALESCE($15, status),
+           expires_at = COALESCE($16, expires_at),
            updated_at = CURRENT_TIMESTAMP
        WHERE job_id = $1
        RETURNING *`,
       [
-        jobId, title, description, requirements,
+        jobId, title, description, requirements, responsibilities,
         city, state, country, remoteOption,
         salaryMin, salaryMax, salaryCurrency,
         employmentType, experienceLevel, status, expiresAt
@@ -396,6 +401,7 @@ export async function updateJob(req: Request, res: Response): Promise<void> {
         title: job.title,
         description: job.description,
         requirements: job.requirements,
+        responsibilities: job.responsibilities,
         city: job.city,
         state: job.state,
         country: job.country,
@@ -510,11 +516,13 @@ export async function addJobSkill(req: Request, res: Response): Promise<void> {
     }
 
     // Add job skill
+    // Convert weight from percentage (0-100) to decimal (0-1)
+    const weightDecimal = weight != null ? weight / 100 : 1.0;
     const result = await query(
       `INSERT INTO job_skills (job_id, skill_id, weight, minimum_score, required)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING job_skill_id, job_id, skill_id, weight, minimum_score, required, created_at`,
-      [jobId, skillId, weight || 1.0, minimumScore || 60.0, required !== false]
+      [jobId, skillId, weightDecimal, minimumScore || 60.0, required !== false]
     );
 
     const jobSkill = result.rows[0];
@@ -526,7 +534,7 @@ export async function addJobSkill(req: Request, res: Response): Promise<void> {
         jobId: jobSkill.job_id,
         skillId: jobSkill.skill_id,
         skillName: skill.name,
-        weight: parseFloat(jobSkill.weight),
+        weight: parseFloat(jobSkill.weight) * 100, // Convert back to percentage for frontend
         minimumScore: parseFloat(jobSkill.minimum_score),
         required: jobSkill.required,
         createdAt: jobSkill.created_at,
@@ -576,6 +584,8 @@ export async function updateJobSkill(req: Request, res: Response): Promise<void>
     }
 
     // Update job skill
+    // Convert weight from percentage (0-100) to decimal (0-1) if provided
+    const weightDecimal = weight != null ? weight / 100 : null;
     const result = await query(
       `UPDATE job_skills
        SET weight = COALESCE($3, weight),
@@ -583,7 +593,7 @@ export async function updateJobSkill(req: Request, res: Response): Promise<void>
            required = COALESCE($5, required)
        WHERE job_id = $1 AND skill_id = $2
        RETURNING *`,
-      [jobId, skillId, weight, minimumScore, required]
+      [jobId, skillId, weightDecimal, minimumScore, required]
     );
 
     if (result.rows.length === 0) {
@@ -600,7 +610,7 @@ export async function updateJobSkill(req: Request, res: Response): Promise<void>
         jobSkillId: jobSkill.job_skill_id,
         jobId: jobSkill.job_id,
         skillId: jobSkill.skill_id,
-        weight: parseFloat(jobSkill.weight),
+        weight: parseFloat(jobSkill.weight) * 100, // Convert back to percentage for frontend
         minimumScore: parseFloat(jobSkill.minimum_score),
         required: jobSkill.required,
       })

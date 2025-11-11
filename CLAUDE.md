@@ -8,13 +8,45 @@ JobGraph is a skills-based job matching platform where candidates interview once
 
 **Core Value Proposition**: Candidates take skill-specific interviews that are reused across all job applications, eliminating redundant assessments. Employers receive ranked candidates with verified skill scores.
 
+**Current Phase**: Phase 1 In Progress - Auth and Profile services are complete and tested. Ready to continue with Job Service and Matching.
+
 ## Architecture
+
+### Monorepo Structure
+
+The backend uses npm workspaces with a shared common package:
+
+```
+backend/
+├── package.json (workspace root)
+├── common/ (@jobgraph/common package)
+│   ├── src/
+│   │   ├── database/    # PostgreSQL pool, Redis client, query helpers
+│   │   ├── types/       # Shared TypeScript interfaces
+│   │   └── utils/       # Auth, validation, response formatters
+│   └── dist/            # Compiled output
+├── services/
+│   ├── auth-service/
+│   ├── profile-service/
+│   ├── interview-service/
+│   ├── job-service/
+│   ├── matching-service/
+│   └── notification-service/
+└── tests/
+    ├── unit/
+    └── integration/
+```
+
+**Import Pattern**: All services import from `@jobgraph/common`:
+```typescript
+import { pool, query, hashPassword, User, ApiResponse } from '@jobgraph/common';
+```
 
 ### Microservices Structure
 
-The system consists of 6 main services deployed on AWS ECS:
+The system consists of 6 main services (to be deployed on AWS ECS):
 
-1. **Authentication Service** - User registration/login via AWS Cognito
+1. **Authentication Service** - User registration/login (local auth in Phase 1, Cognito in Phase 4)
 2. **Profile Service** - Resume upload, AI parsing (Textract), profile management
 3. **Interview Service** - Generate interviews, administer assessments, AI scoring (Bedrock)
 4. **Job Service** - Job CRUD operations, skill requirement management
@@ -32,90 +64,197 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - `jobs` → `job_skills` (required skills with weights and minimum thresholds)
 - `job_matches` (candidate-job pairs with compatibility scores)
 
+### Service Implementation Details
+
+**Auth Service** (Port 3000):
+- Auto-creates `candidate_profiles` record on registration for `role='candidate'`
+- JWT payload uses `user_id` (not `userId`) to match `JwtPayload` interface
+- Database uses `user_id` as primary key (not `id`)
+- Token expiration configured via `JWT_EXPIRES_IN` env variable
+
+**Profile Service** (Port 3001):
+- All routes require authentication via `authenticate` middleware
+- Uses COALESCE pattern for partial updates (only updates provided fields)
+- Education and work experience tables don't have `updated_at` column (only base profile does)
+- Returns nested JSON with education and work experience arrays
+- Authorization check: queries join through `candidate_profiles` to verify ownership
+
+### Common Package API
+
+**Database** (`@jobgraph/common/database`):
+- `pool` - PostgreSQL connection pool (max 20 connections)
+- `redis` - Redis client with retry strategy
+- `query(text, params)` - Execute parameterized queries
+- `transaction(callback)` - Execute in transaction with auto-rollback
+- `testDatabaseConnection()` - Health check
+- `testRedisConnection()` - Health check
+
+**Types** (`@jobgraph/common/types`):
+- `User`, `CandidateProfile`, `Skill`, `Job` - Database models
+- `ApiResponse<T>` - Standard API response wrapper
+- `JwtPayload` - JWT token structure
+
+**Utils** (`@jobgraph/common/utils`):
+- `hashPassword(password)` - Bcrypt hash with 10 rounds
+- `comparePassword(password, hash)` - Verify password
+- `generateToken(payload)` - Create JWT (expiry from env)
+- `verifyToken(token)` - Validate JWT
+- `isValidEmail(email)` - Email regex validation
+- `isValidPassword(password)` - Password strength check (8+ chars, upper, lower, number, special)
+- `successResponse(data, pagination?)` - Format success response
+- `errorResponse(code, message, details?)` - Format error response
+- `AppError` - Custom error class with statusCode, code, message, details
+
 ### Matching Algorithm
 
 The core algorithm calculates job match scores:
 
-```python
-def calculate_job_match_score(user_id, job_id):
-    # Get user's skill scores from completed interviews
-    # For each required skill in job:
-    #   - Check user has completed interview (user_skill_scores)
-    #   - Verify user_score >= minimum_score (else disqualify)
-    #   - Apply skill weight to score
-    # Return weighted average: Σ(skill_score[i] × weight[i]) / Σ(weight[i])
+```typescript
+function calculateJobMatchScore(userId: string, jobId: string) {
+    // Get user's skill scores from completed interviews
+    // For each required skill in job:
+    //   - Check user has completed interview (user_skill_scores)
+    //   - Verify user_score >= minimum_score (else disqualify)
+    //   - Apply skill weight to score
+    // Return weighted average: Σ(skill_score[i] × weight[i]) / Σ(weight[i])
+}
 ```
 
 **Critical constraint**: Users must have completed interviews for ALL required skills in a job to be matched. Optional skills can be missing.
 
-### Resume Parsing Flow
-
-```
-S3 Upload → EventBridge → Lambda → Textract → Parse structured data
-→ Store in candidate_profiles.resume_parsed_data (JSONB)
-→ Auto-fill profile fields → Generate follow_up_questions for gaps
-```
-
-### Interview Scoring Flow
-
-```
-User completes interview → interview_responses stored
-→ Lambda function triggered → Bedrock evaluates responses
-→ Multiple choice: exact match scoring
-→ Coding: test case validation
-→ Open-ended: AI evaluation with rubric
-→ Calculate overall_score → Store in user_skill_scores
-→ Trigger matching service to find new job matches
-```
-
-## AWS Infrastructure
-
-See [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) for complete details.
-
-**Key Services**:
-- **Compute**: ECS Fargate (services), Lambda (event-driven functions)
-- **Database**: RDS PostgreSQL (primary), DynamoDB (sessions), ElastiCache Redis (cache)
-- **Storage**: S3 (resumes, assets)
-- **AI/ML**: Textract (resume parsing), Bedrock Claude 3.5 Sonnet (interview evaluation)
-- **Search**: OpenSearch (job/candidate search)
-- **Auth**: Cognito (user pools)
-- **Networking**: API Gateway, CloudFront (CDN), Route 53
-
-**Infrastructure as Code**: Use AWS CDK (TypeScript) in `infrastructure/` directory.
-
 ## Development Workflow
 
-### Environment Setup
+### Initial Setup
 
-Currently design phase - no implementation yet. When implementing:
+**Prerequisites**: Node.js 18+, Docker Desktop
 
-**Backend** (Node.js or Python FastAPI):
-- Each service in separate directory: `services/auth-service/`, `services/profile-service/`, etc.
-- Shared utilities in `services/common/`
-- Environment variables via AWS Secrets Manager (production) or `.env` (local)
+```bash
+# 1. Install dependencies
+cd backend && npm install
 
-**Frontend** (React + TypeScript):
-- Single-page application in `frontend/`
-- State management: Redux Toolkit or Zustand
-- API client: Axios with React Query
+# 2. Start Docker services (PostgreSQL, Redis, Adminer)
+docker-compose up -d
 
-**Database**:
-- Local development: Docker Compose with PostgreSQL, Redis
-- Apply schema: `psql -U postgres -d jobgraph < DATABASE_SCHEMA.sql`
-- Migrations: Use a migration tool (e.g., node-pg-migrate, Alembic)
+# 3. Load database schema and seed data
+./scripts/setup-database.sh
+# Or manually:
+docker exec -i jobgraph-postgres psql -U postgres -d jobgraph_dev < DATABASE_SCHEMA.sql
+cd backend && npx ts-node ../scripts/seed-data/seed-skills.ts
+cd backend && npx ts-node ../scripts/seed-data/seed-test-users.ts
 
-### Testing Strategy
+# 4. Build common package
+cd backend/common && npm run build
 
-**Unit Tests**: Individual functions, especially scoring algorithms
-**Integration Tests**: API endpoints, database operations
-**E2E Tests**: Critical user flows (resume upload → interview → matching)
+# 5. Verify setup
+cd backend && npm test
+```
 
-**Key Areas to Test**:
-- Matching algorithm correctness (various skill combinations)
-- Interview scoring (different question types)
-- Resume parsing edge cases (malformed PDFs, missing sections)
-- Minimum threshold enforcement (candidates below threshold excluded)
-- Skill weight calculations (verify weighted averages)
+### Common Commands
+
+**Backend Development**:
+```bash
+# From backend directory
+npm install                    # Install all dependencies (workspaces)
+npm test                       # Run all tests with Jest
+npm run test:watch            # Run tests in watch mode
+npm run test:coverage         # Generate coverage report
+npm run lint                  # Lint TypeScript code with ESLint
+npm run format                # Format code with Prettier
+
+# Build common package (must do this before services can import it)
+cd common && npm run build    # Compile TypeScript to dist/
+cd common && npm run dev      # Watch mode - rebuilds on changes
+
+# Run individual services (Phase 1+, once services are implemented)
+npm run dev:auth              # Start auth service on port 3000
+npm run dev:profile           # Start profile service
+npm run dev:interview         # Start interview service
+npm run dev:job               # Start job service
+npm run dev:matching          # Start matching service
+npm run dev:notification      # Start notification service
+```
+
+**Docker & Database**:
+```bash
+# Docker management
+docker-compose up -d          # Start PostgreSQL, Redis, Adminer
+docker-compose down           # Stop all services
+docker-compose ps             # Check service status
+docker-compose logs -f        # View logs (all services)
+docker-compose logs -f postgres  # View PostgreSQL logs only
+
+# Database access
+docker exec -it jobgraph-postgres psql -U postgres -d jobgraph_dev
+# Or use Adminer web UI: http://localhost:8080
+
+# Migrations (when needed)
+npm run migrate:create <name> # Create new migration
+npm run migrate:up            # Run pending migrations
+npm run migrate:down          # Rollback last migration
+```
+
+**Testing**:
+```bash
+# Jest Unit Tests
+npm test                           # Run all tests
+npm test -- utils.test.ts          # Run specific test file
+npm test -- --testNamePattern="Password"  # Run tests matching pattern
+npm run test:watch                 # Watch mode
+npm run test:coverage              # Generate coverage report
+
+# API Integration Tests (must have Docker services and auth/profile services running)
+./test-auth-api.sh                 # Test Auth Service (9 tests)
+./test-profile-api.sh              # Test Profile Service (14 tests)
+
+# Phase Test Suites
+./scripts/test-phase0.sh           # Verify Phase 0 foundation
+./scripts/test-phase1.sh           # Verify Phase 1 services (21 tests)
+```
+
+### Adding a New Service
+
+Each service follows this structure:
+
+```bash
+# 1. Create package.json in service directory
+cat > backend/services/auth-service/package.json << 'EOF'
+{
+  "name": "@jobgraph/auth-service",
+  "version": "1.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "nodemon --watch src --ext ts --exec ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@jobgraph/common": "*",
+    "express": "^4.18.0",
+    "cors": "^2.8.5",
+    "helmet": "^7.0.0",
+    "dotenv": "^16.3.0"
+  }
+}
+EOF
+
+# 2. Create tsconfig.json
+cat > backend/services/auth-service/tsconfig.json << 'EOF'
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"]
+}
+EOF
+
+# 3. Install dependencies
+cd backend && npm install
+
+# 4. Create src/index.ts and implement service
+```
 
 ## Important Business Rules
 
@@ -139,7 +278,7 @@ Currently design phase - no implementation yet. When implementing:
 
 All APIs follow REST conventions under `/api/v1/`:
 
-**Authentication**: JWT tokens from Cognito, passed in `Authorization: Bearer <token>` header
+**Authentication**: JWT tokens (local in Phase 1, Cognito in Phase 4), passed in `Authorization: Bearer <token>` header
 
 **Pagination**: Use `?page=1&limit=20` query params, return:
 ```json
@@ -149,9 +288,18 @@ All APIs follow REST conventions under `/api/v1/`:
 }
 ```
 
-**Error Responses**:
+**Success Response** (use `successResponse()` helper):
 ```json
 {
+  "success": true,
+  "data": { ... }
+}
+```
+
+**Error Response** (use `errorResponse()` helper):
+```json
+{
+  "success": false,
   "error": {
     "code": "INSUFFICIENT_SKILL_SCORE",
     "message": "Your Python score (55) is below the minimum required (70)",
@@ -160,61 +308,81 @@ All APIs follow REST conventions under `/api/v1/`:
 }
 ```
 
-**Key Endpoints** (see SYSTEM_DESIGN.md for full list):
-- `POST /interviews/:skill_id/start` - Begin interview (locks user to skill)
-- `PUT /interviews/:interview_id/submit` - Submit answers, trigger scoring
-- `GET /jobs/:job_id/candidates` - Employer-only, returns ranked matches
-- `POST /jobs/:job_id/contact-candidate` - Initiate contact, notify candidate
-
-## AWS-Specific Considerations
-
-### Lambda Function Timeouts
-- Resume parsing: 5 minutes (Textract can be slow)
-- Interview scoring: 2 minutes (Bedrock API calls)
-- Match calculation: 10 minutes (batch process for all jobs)
-
-### Database Connection Pooling
-- ECS services use connection pooling (max 20 connections per service)
-- Lambda functions use RDS Proxy to avoid connection exhaustion
-
-### S3 Presigned URLs
-- Resume uploads: Generate presigned POST URLs (10-minute expiry)
-- Resume downloads: Generate presigned GET URLs (1-hour expiry, authenticated only)
-
-### Caching Strategy (Redis)
-- Cache user profiles: 1-hour TTL, invalidate on update
-- Cache job details: 30-minute TTL
-- Cache skill scores: 24-hour TTL, invalidate on new interview completion
-- Don't cache: Match results (recalculated on-demand or scheduled)
+**Key Endpoints** (see [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) for full list):
+- `POST /api/v1/auth/register` - User registration
+- `POST /api/v1/auth/login` - User login
+- `POST /api/v1/interviews/:skill_id/start` - Begin interview (locks user to skill)
+- `PUT /api/v1/interviews/:interview_id/submit` - Submit answers, trigger scoring
+- `GET /api/v1/jobs/:job_id/candidates` - Employer-only, returns ranked matches
+- `POST /api/v1/jobs/:job_id/contact-candidate` - Initiate contact, notify candidate
 
 ## Security Requirements
 
+- **Use parameterized queries**: Always use `query(text, params)` - NEVER string concatenation
+- **Password requirements**: Enforced by `isValidPassword()` - 8+ chars, upper, lower, number, special
+- **JWT secrets**: Stored in `.env` (local) or AWS Secrets Manager (production)
 - **Never expose raw candidate data** to employers before contact is initiated
-- **Validate all file uploads**: Max 10MB, only PDF/DOCX, scan with ClamAV
-- **Rate limiting**: 100 requests/minute per user (API Gateway)
-- **SQL injection prevention**: Use parameterized queries exclusively
-- **CORS**: Whitelist frontend domains only (`app.jobgraph.com`)
-- **Secrets**: Never commit AWS credentials, use Secrets Manager or environment variables
+- **File upload validation**: Max 10MB, only PDF/DOCX (Phase 1+)
+- **Rate limiting**: 100 requests/minute per user (API Gateway in Phase 4)
+- **CORS**: Whitelist frontend domains only
 
-## Cost Optimization
+## Testing Strategy
 
-- **Bedrock usage**: Only evaluate open-ended questions with AI (not MCQ)
-- **Textract**: Cache parsed resume data, don't re-parse on every profile view
-- **RDS**: Use read replicas for heavy read operations (job search, candidate browsing)
-- **Lambda**: Use appropriate memory settings (resume parser: 2GB, others: 512MB)
-- **S3**: Lifecycle policies to archive old resumes to Glacier after 1 year
+**Unit Tests**: Individual functions, especially:
+- Password hashing and validation
+- JWT token generation/verification
+- Matching algorithm with various skill combinations
+- Interview scoring logic
+
+**Integration Tests**:
+- API endpoints with real database (use test database)
+- Database operations with transactions
+- Redis caching
+
+**E2E Tests** (Phase 2+):
+- Resume upload → parsing → profile auto-fill
+- Interview flow → scoring → skill scores
+- Job posting → matching → candidate ranking
+
+**Test Database**:
+- Use `jobgraph_test` database for tests
+- Set `DATABASE_NAME=jobgraph_test` in test environment
+- Reset database between test suites
+
+## AWS Infrastructure (Phase 4)
+
+See [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) for complete details.
+
+**Key Services**:
+- **Compute**: ECS Fargate (services), Lambda (event-driven functions)
+- **Database**: RDS PostgreSQL (primary), DynamoDB (sessions), ElastiCache Redis (cache)
+- **Storage**: S3 (resumes, assets)
+- **AI/ML**: Textract (resume parsing), Bedrock Claude 3.5 Sonnet (interview evaluation)
+- **Auth**: Cognito (user pools)
+
+**Infrastructure as Code**: Use AWS CDK (TypeScript) in `infrastructure/` directory.
 
 ## Development Phases
 
-Currently in **design phase**. See README.md for full roadmap.
+**Phase 0**: Complete ✅ - Foundation established (Docker, PostgreSQL, Redis, Common package)
 
-**Phase 1 (MVP)**: Basic auth, profile creation, resume upload/parsing, simple job posting, basic matching without interviews
-**Phase 2 (Core)**: Interview system, AI scoring, advanced matching algorithm
-**Phase 3 (Enhancement)**: Search, analytics, mobile app, performance tuning
-**Phase 4 (Scale)**: ML improvements, video interviews, multi-region deployment
+**Phase 1 (Current)**: MVP - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
+- ✅ Auth Service (local auth with JWT) - `/api/v1/auth/*` on port 3000
+- ✅ Profile Service (CRUD operations) - `/api/v1/profiles/*` on port 3001
+- 🔄 Job Service (posting and management)
+- 🔄 Basic matching (manual skill scores)
+- 🔄 Frontend (React + TypeScript)
+
+**Phase 2**: Interview system with AI scoring
+**Phase 3**: Search, analytics, enhanced features
+**Phase 4**: AWS deployment, production infrastructure
 
 ## References
 
 - [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md) - Complete architecture, data models, algorithms
 - [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) - PostgreSQL schema with indexes and views
-- [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) - AWS service configurations, networking, monitoring
+- [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) - AWS service configurations
+- [EXECUTION_PLAN.md](EXECUTION_PLAN.md) - Implementation roadmap
+- [DEV_SETUP.md](DEV_SETUP.md) - Development environment setup guide
+- [PHASE_0_CHECKLIST.md](PHASE_0_CHECKLIST.md) - Phase 0 verification checklist
+- [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md) - Phase 1 implementation progress tracker

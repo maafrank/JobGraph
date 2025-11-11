@@ -116,72 +116,80 @@
 
 ---
 
-## 4. Skills Management (Week 6)
+## 4. Skills Management (Week 6) ✅ COMPLETE
 
 ### 4.1 Skills API
 - [x] Skills seeded in Phase 0 (35 skills)
-- [ ] GET /api/v1/skills - List all skills
-  - [ ] Pagination support
-  - [ ] Filter by category
-  - [ ] Search by name
-- [ ] GET /api/v1/skills/:id - Get skill details
-- [ ] POST /api/v1/skills - Admin: Create skill
-- [ ] PUT /api/v1/skills/:id - Admin: Update skill
-- [ ] DELETE /api/v1/skills/:id - Admin: Deactivate skill
+- [x] GET /api/v1/skills - List all skills
+  - [x] Pagination support
+  - [x] Filter by category
+  - [x] Search by name
+- [x] GET /api/v1/skills/:id - Get skill details
+- [x] GET /api/v1/skills/categories - Get distinct categories
+- [ ] POST /api/v1/skills - Admin: Create skill (deferred to Phase 2)
+- [ ] PUT /api/v1/skills/:id - Admin: Update skill (deferred to Phase 2)
+- [ ] DELETE /api/v1/skills/:id - Admin: Deactivate skill (deferred to Phase 2)
 
 ### 4.2 Manual Skill Scores (for MVP)
-- [ ] POST /api/v1/profiles/candidate/skills - Add manual skill score
-- [ ] PUT /api/v1/profiles/candidate/skills/:skillId - Update skill score
-- [ ] DELETE /api/v1/profiles/candidate/skills/:skillId - Remove skill
-- [ ] Insert into user_skill_scores table
-- [ ] Set expiry date (default: 1 year)
+- [x] GET /api/v1/profiles/candidate/skills - View candidate's skill scores
+- [x] POST /api/v1/profiles/candidate/skills - Add manual skill score
+- [x] PUT /api/v1/profiles/candidate/skills/:skillId - Update skill score
+- [x] DELETE /api/v1/profiles/candidate/skills/:skillId - Remove skill
+- [x] Insert into user_skill_scores table (interview_id nullable for manual entry)
+- [x] Set expiry date (default: 1 year)
+- [x] Score validation (0-100 range)
+- [x] Duplicate skill prevention
 
 ### 4.3 Testing
-- [ ] Test skills listing with pagination
-- [ ] Test skills filtering
-- [ ] Test manual skill score entry
-- [ ] Test skill score updates
+- [x] Test skills listing with pagination
+- [x] Test skills filtering
+- [x] Test manual skill score entry
+- [x] Test skill score updates
+- [x] Test skill score deletion
+- [x] Integrated into test-phase1.sh (Tests 25-30)
 
 ---
 
-## 5. Job Service (Week 7)
+## 5. Job Service (Week 7) ✅ COMPLETE
 
 ### 5.1 Job Management
-- [ ] Job service structure
-- [ ] POST /api/v1/jobs - Create job posting
-  - [ ] Job details (title, description, requirements)
-  - [ ] Location
-  - [ ] Remote option
-  - [ ] Salary range
-  - [ ] Employment type
-  - [ ] Experience level
-- [ ] GET /api/v1/jobs - List jobs
-  - [ ] Pagination
-  - [ ] Filter by location
-  - [ ] Filter by remote option
-  - [ ] Filter by experience level
-  - [ ] Search by title/description
-- [ ] GET /api/v1/jobs/:id - Get job details
-- [ ] PUT /api/v1/jobs/:id - Update job
-- [ ] DELETE /api/v1/jobs/:id - Close/cancel job
-- [ ] Only employer role can create/edit jobs
+- [x] Job service structure
+- [x] POST /api/v1/jobs - Create job posting
+  - [x] Job details (title, description, requirements)
+  - [x] Location
+  - [x] Remote option
+  - [x] Salary range
+  - [x] Employment type
+  - [x] Experience level
+- [x] GET /api/v1/jobs - List jobs
+  - [x] Pagination
+  - [x] Filter by location
+  - [x] Filter by remote option
+  - [x] Filter by experience level
+  - [x] Search by title/description
+- [x] GET /api/v1/jobs/:id - Get job details
+- [x] PUT /api/v1/jobs/:id - Update job
+- [x] DELETE /api/v1/jobs/:id - Close/cancel job
+- [x] Only employer role can create/edit jobs
+- [x] Company ownership verification
 
 ### 5.2 Job Skills Management
-- [ ] POST /api/v1/jobs/:id/skills - Add required skill to job
-  - [ ] Skill ID
-  - [ ] Weight (importance)
-  - [ ] Minimum score threshold
-  - [ ] Required vs optional flag
-- [ ] PUT /api/v1/jobs/:id/skills/:skillId - Update skill requirement
-- [ ] DELETE /api/v1/jobs/:id/skills/:skillId - Remove skill
-- [ ] Validate total weights = 100 (or normalize)
+- [x] POST /api/v1/jobs/:id/skills - Add required skill to job
+  - [x] Skill ID
+  - [x] Weight (importance)
+  - [x] Minimum score threshold
+  - [x] Required vs optional flag
+- [x] PUT /api/v1/jobs/:id/skills/:skillId - Update skill requirement
+- [x] DELETE /api/v1/jobs/:id/skills/:skillId - Remove skill
+- [x] Weight normalization (stored as decimal 0-1)
 
 ### 5.3 Testing
-- [ ] Test job creation
-- [ ] Test job listing with filters
-- [ ] Test job updates
-- [ ] Test job skills management
-- [ ] Test authorization (only job owner can edit)
+- [x] Test job creation
+- [x] Test job listing with filters
+- [x] Test job updates
+- [x] Test job skills management
+- [x] Test authorization (only job owner can edit)
+- [x] Integrated into test-phase1.sh (Tests 21-24)
 
 ---
 
@@ -385,12 +393,24 @@ Once all Phase 1 items are complete, the MVP is ready for Phase 2, which will in
 ✅ **Phase 0**: Complete - Foundation established
 ✅ **1. Auth Service**: Core functionality complete (missing refresh tokens, logout, email verification)
 ✅ **2. Profile Service (Candidate)**: Complete - All CRUD operations working
-⏳ **2.4 Company Profile Management**: Not started
+✅ **4. Skills Management**: Complete - Skills API and manual skill score management
+✅ **5. Job Service**: Complete - Job posting and skills management
+⏳ **2.4 Company Profile Management**: Not started (manual test data sufficient for MVP)
+⏳ **3. File Upload & Resume Parsing**: Not started (deferred to Phase 2)
 
-**Next Steps**:
-1. **Option A**: Job Service (Week 7) - Start employer job posting functionality
-2. **Option B**: Skills Management (Week 6) - Enable manual skill score entry for MVP
-3. **Option C**: Company Profile Management - Complete remaining Profile Service work
-4. **Option D**: Skip to Matching Service (Week 8) with manual test data
+**Services Running:**
+- Auth Service (Port 3000) - `/api/v1/auth/*`
+- Profile Service (Port 3001) - `/api/v1/profiles/*`
+- Job Service (Port 3002) - `/api/v1/jobs/*`
+- Skills Service (Port 3003) - `/api/v1/skills/*`
 
-**Recommended**: Start with **Job Service** since it's critical for the core matching flow and we can test with manual skill scores later.
+**Test Coverage:**
+- 30 tests in `test-phase1.sh` covering all 4 services
+- Individual test scripts: `test-auth-api.sh`, `test-profile-api.sh`, `test-job-api.sh`, `test-skills-api.sh`
+
+**Next Steps:**
+1. **Matching Service (Week 8)** - Implement core matching algorithm ← RECOMMENDED NEXT
+2. **Frontend MVP (Week 9-10)** - React application with authentication and basic flows
+3. **Integration & Testing (Week 11)** - E2E tests and polish
+
+**Recommended**: Proceed with **Matching Service** to complete the core MVP functionality, then move to Frontend.

@@ -457,3 +457,273 @@ export async function deleteWorkExperience(req: Request, res: Response): Promise
     );
   }
 }
+
+// ============================================================================
+// SKILL SCORE MANAGEMENT (Manual entry for MVP)
+// ============================================================================
+
+/**
+ * Get candidate's skill scores
+ * GET /api/v1/profiles/candidate/skills
+ */
+export async function getCandidateSkills(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+
+    // Get all skill scores for the user
+    const result = await query(
+      `SELECT uss.user_skill_id, uss.user_id, uss.skill_id, uss.score,
+              uss.percentile, uss.created_at, uss.expires_at,
+              s.name as skill_name, s.category, s.description
+       FROM user_skill_scores uss
+       JOIN skills s ON uss.skill_id = s.skill_id
+       WHERE uss.user_id = $1
+       ORDER BY s.category, s.name`,
+      [userId]
+    );
+
+    res.status(200).json(
+      successResponse(
+        result.rows.map(row => ({
+          userSkillId: row.user_skill_id,
+          userId: row.user_id,
+          skillId: row.skill_id,
+          skillName: row.skill_name,
+          category: row.category,
+          description: row.description,
+          score: parseFloat(row.score),
+          percentile: row.percentile ? parseFloat(row.percentile) : null,
+          createdAt: row.created_at,
+          expiresAt: row.expires_at,
+        }))
+      )
+    );
+  } catch (error) {
+    console.error('Get candidate skills error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred fetching skills')
+    );
+  }
+}
+
+/**
+ * Add manual skill score for candidate (MVP - no interview)
+ * POST /api/v1/profiles/candidate/skills
+ */
+export async function addCandidateSkill(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+    const { skillId, score } = req.body;
+
+    // Validate required fields
+    if (!skillId) {
+      res.status(400).json(
+        errorResponse('MISSING_SKILL_ID', 'Skill ID is required')
+      );
+      return;
+    }
+
+    if (score === undefined || score === null) {
+      res.status(400).json(
+        errorResponse('MISSING_SCORE', 'Score is required')
+      );
+      return;
+    }
+
+    // Validate score range
+    if (score < 0 || score > 100) {
+      res.status(400).json(
+        errorResponse('INVALID_SCORE', 'Score must be between 0 and 100')
+      );
+      return;
+    }
+
+    // Verify skill exists
+    const skillCheck = await query(
+      'SELECT skill_id, name FROM skills WHERE skill_id = $1 AND active = TRUE',
+      [skillId]
+    );
+
+    if (skillCheck.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('SKILL_NOT_FOUND', 'Skill not found or inactive')
+      );
+      return;
+    }
+
+    // Check if user already has this skill
+    const existingSkill = await query(
+      'SELECT user_skill_id FROM user_skill_scores WHERE user_id = $1 AND skill_id = $2',
+      [userId, skillId]
+    );
+
+    if (existingSkill.rows.length > 0) {
+      res.status(409).json(
+        errorResponse(
+          'SKILL_ALREADY_EXISTS',
+          'You already have this skill. Use PUT to update the score.',
+          { skillId, skillName: skillCheck.rows[0].name }
+        )
+      );
+      return;
+    }
+
+    // Set expiry date (1 year from now)
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+    // Insert skill score (interview_id is NULL for manual entry in MVP)
+    const result = await query(
+      `INSERT INTO user_skill_scores (user_id, skill_id, interview_id, score, expires_at)
+       VALUES ($1, $2, NULL, $3, $4)
+       RETURNING *`,
+      [userId, skillId, score, expiresAt]
+    );
+
+    const skillScore = result.rows[0];
+
+    res.status(201).json(
+      successResponse({
+        userSkillId: skillScore.user_skill_id,
+        userId: skillScore.user_id,
+        skillId: skillScore.skill_id,
+        skillName: skillCheck.rows[0].name,
+        score: parseFloat(skillScore.score),
+        percentile: skillScore.percentile ? parseFloat(skillScore.percentile) : null,
+        createdAt: skillScore.created_at,
+        expiresAt: skillScore.expires_at,
+      })
+    );
+  } catch (error: any) {
+    console.error('Add candidate skill error:', error);
+
+    // Handle unique constraint violation (shouldn't happen due to check above, but just in case)
+    if (error.code === '23505') {
+      res.status(409).json(
+        errorResponse('SKILL_ALREADY_EXISTS', 'You already have this skill')
+      );
+      return;
+    }
+
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred adding skill')
+    );
+  }
+}
+
+/**
+ * Update manual skill score for candidate
+ * PUT /api/v1/profiles/candidate/skills/:skillId
+ */
+export async function updateCandidateSkill(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+    const { skillId } = req.params;
+    const { score } = req.body;
+
+    // Validate score
+    if (score === undefined || score === null) {
+      res.status(400).json(
+        errorResponse('MISSING_SCORE', 'Score is required')
+      );
+      return;
+    }
+
+    if (score < 0 || score > 100) {
+      res.status(400).json(
+        errorResponse('INVALID_SCORE', 'Score must be between 0 and 100')
+      );
+      return;
+    }
+
+    // Check if skill exists for this user
+    const existing = await query(
+      'SELECT user_skill_id FROM user_skill_scores WHERE user_id = $1 AND skill_id = $2',
+      [userId, skillId]
+    );
+
+    if (existing.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('SKILL_NOT_FOUND', 'You do not have this skill. Use POST to add it.')
+      );
+      return;
+    }
+
+    // Update the score and reset expiry date
+    const expiresAt = new Date();
+    expiresAt.setFullYear(expiresAt.getFullYear() + 1);
+
+    const result = await query(
+      `UPDATE user_skill_scores
+       SET score = $1, expires_at = $2
+       WHERE user_id = $3 AND skill_id = $4
+       RETURNING *`,
+      [score, expiresAt, userId, skillId]
+    );
+
+    const skillScore = result.rows[0];
+
+    // Get skill name
+    const skillInfo = await query(
+      'SELECT name FROM skills WHERE skill_id = $1',
+      [skillId]
+    );
+
+    res.status(200).json(
+      successResponse({
+        userSkillId: skillScore.user_skill_id,
+        userId: skillScore.user_id,
+        skillId: skillScore.skill_id,
+        skillName: skillInfo.rows[0]?.name,
+        score: parseFloat(skillScore.score),
+        percentile: skillScore.percentile ? parseFloat(skillScore.percentile) : null,
+        createdAt: skillScore.created_at,
+        expiresAt: skillScore.expires_at,
+      })
+    );
+  } catch (error) {
+    console.error('Update candidate skill error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred updating skill')
+    );
+  }
+}
+
+/**
+ * Delete skill from candidate profile
+ * DELETE /api/v1/profiles/candidate/skills/:skillId
+ */
+export async function deleteCandidateSkill(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+    const { skillId } = req.params;
+
+    // Check if skill exists for this user
+    const existing = await query(
+      'SELECT user_skill_id FROM user_skill_scores WHERE user_id = $1 AND skill_id = $2',
+      [userId, skillId]
+    );
+
+    if (existing.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('SKILL_NOT_FOUND', 'Skill not found in your profile')
+      );
+      return;
+    }
+
+    // Delete the skill
+    await query(
+      'DELETE FROM user_skill_scores WHERE user_id = $1 AND skill_id = $2',
+      [userId, skillId]
+    );
+
+    res.status(200).json(
+      successResponse({ message: 'Skill deleted successfully' })
+    );
+  } catch (error) {
+    console.error('Delete candidate skill error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred deleting skill')
+    );
+  }
+}

@@ -449,6 +449,113 @@ fi
 
 echo ""
 
+# ============================================================================
+# SKILLS SERVICE TESTS (Port 3003)
+# ============================================================================
+
+# Test 25: Check if Skills Service is running
+echo "Test 25: Check if Skills Service is running..."
+SKILL_HEALTH=$(curl -s http://localhost:3003/health 2>/dev/null || echo "")
+if echo "$SKILL_HEALTH" | grep -q "healthy"; then
+  test_result 0 "Skills Service is healthy"
+else
+  test_result 1 "Skills Service is not running"
+fi
+
+echo ""
+
+# Test 26: Get skills with pagination
+echo "Test 26: Get skills list..."
+SKILLS_RESPONSE=$(curl -s "http://localhost:3003/api/v1/skills?limit=5" 2>/dev/null || echo "")
+if echo "$SKILLS_RESPONSE" | grep -q "\"success\":true"; then
+  test_result 0 "Get skills successful"
+  SKILL_COUNT=$(echo "$SKILLS_RESPONSE" | grep -o "skillId" | wc -l | xargs)
+  echo "  Retrieved $SKILL_COUNT skills"
+else
+  test_result 1 "Get skills failed"
+fi
+
+echo ""
+
+# Test 27: Get skill categories
+echo "Test 27: Get skill categories..."
+CATEGORIES_RESPONSE=$(curl -s "http://localhost:3003/api/v1/skills/categories" 2>/dev/null || echo "")
+if echo "$CATEGORIES_RESPONSE" | grep -q "\"success\":true"; then
+  test_result 0 "Get categories successful"
+else
+  test_result 1 "Get categories failed"
+fi
+
+echo ""
+
+# Test 28: Add manual skill score to candidate profile
+echo "Test 28: Add skill score to candidate profile..."
+# Get a skill ID (Python)
+PYTHON_SKILL_ID=$(echo "$SKILLS_RESPONSE" | grep -o '"skillId":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+if [ -n "$PYTHON_SKILL_ID" ] && [ -n "$CANDIDATE_TOKEN" ]; then
+  ADD_SKILL_RESPONSE=$(curl -s -X POST http://localhost:3001/api/v1/profiles/candidate/skills \
+    -H "Authorization: Bearer ${CANDIDATE_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"skillId\": \"${PYTHON_SKILL_ID}\",
+      \"score\": 85
+    }" 2>/dev/null || echo "")
+
+  if echo "$ADD_SKILL_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Add skill score successful"
+  else
+    # May fail if skill already exists from previous test run - check for that
+    if echo "$ADD_SKILL_RESPONSE" | grep -q "SKILL_ALREADY_EXISTS"; then
+      test_result 0 "Add skill score successful (skill already exists)"
+    else
+      test_result 1 "Add skill score failed"
+    fi
+  fi
+else
+  test_result 1 "Cannot test add skill (missing skill ID or token)"
+fi
+
+echo ""
+
+# Test 29: Get candidate's skill scores
+echo "Test 29: Get candidate's skill scores..."
+if [ -n "$CANDIDATE_TOKEN" ]; then
+  GET_SKILLS_RESPONSE=$(curl -s -X GET http://localhost:3001/api/v1/profiles/candidate/skills \
+    -H "Authorization: Bearer ${CANDIDATE_TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$GET_SKILLS_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Get candidate skills successful"
+    CANDIDATE_SKILL_COUNT=$(echo "$GET_SKILLS_RESPONSE" | grep -o "userSkillId" | wc -l | xargs)
+    echo "  Candidate has $CANDIDATE_SKILL_COUNT skills"
+  else
+    test_result 1 "Get candidate skills failed"
+  fi
+else
+  test_result 1 "Cannot test get candidate skills (no token)"
+fi
+
+echo ""
+
+# Test 30: Update skill score
+echo "Test 30: Update skill score..."
+if [ -n "$PYTHON_SKILL_ID" ] && [ -n "$CANDIDATE_TOKEN" ]; then
+  UPDATE_SKILL_RESPONSE=$(curl -s -X PUT "http://localhost:3001/api/v1/profiles/candidate/skills/${PYTHON_SKILL_ID}" \
+    -H "Authorization: Bearer ${CANDIDATE_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d '{"score": 92}' 2>/dev/null || echo "")
+
+  if echo "$UPDATE_SKILL_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Update skill score successful"
+  else
+    test_result 1 "Update skill score failed"
+  fi
+else
+  test_result 1 "Cannot test update skill (missing skill ID or token)"
+fi
+
+echo ""
+
 # Summary
 echo "============================"
 echo "📊 Test Summary"
@@ -464,6 +571,7 @@ if [ $TESTS_FAILED -eq 0 ]; then
   echo "  • Auth Service: http://localhost:3000"
   echo "  • Profile Service: http://localhost:3001"
   echo "  • Job Service: http://localhost:3002"
+  echo "  • Skills Service: http://localhost:3003"
   echo ""
   echo "Database:"
   echo "  • PostgreSQL: localhost:5432"
@@ -471,10 +579,9 @@ if [ $TESTS_FAILED -eq 0 ]; then
   echo "  • Adminer: http://localhost:8080"
   echo ""
   echo "Next Steps:"
-  echo "  1. Implement Skills Management"
-  echo "  2. Build Matching Service"
-  echo "  3. Create Frontend"
-  echo "  4. Add more comprehensive tests"
+  echo "  1. Build Matching Service"
+  echo "  2. Create Frontend"
+  echo "  3. Add more comprehensive tests"
   exit 0
 else
   echo -e "${YELLOW}⚠ Some tests failed. Please review the failures above.${NC}"

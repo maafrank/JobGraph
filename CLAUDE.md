@@ -8,7 +8,7 @@ JobGraph is a skills-based job matching platform where candidates interview once
 
 **Core Value Proposition**: Candidates take skill-specific interviews that are reused across all job applications, eliminating redundant assessments. Employers receive ranked candidates with verified skill scores.
 
-**Current Phase**: Phase 1 In Progress - Auth and Profile services are complete and tested. Ready to continue with Job Service and Matching.
+**Current Phase**: Phase 1 In Progress - Auth, Profile, Job, and Skills services are complete and tested. Ready to continue with Matching Service.
 
 ## Architecture
 
@@ -44,14 +44,15 @@ import { pool, query, hashPassword, User, ApiResponse } from '@jobgraph/common';
 
 ### Microservices Structure
 
-The system consists of 6 main services (to be deployed on AWS ECS):
+The system consists of 7 main services (to be deployed on AWS ECS):
 
 1. **Authentication Service** - User registration/login (local auth in Phase 1, Cognito in Phase 4)
-2. **Profile Service** - Resume upload, AI parsing (Textract), profile management
-3. **Interview Service** - Generate interviews, administer assessments, AI scoring (Bedrock)
-4. **Job Service** - Job CRUD operations, skill requirement management
-5. **Matching Service** - Calculate candidate-job compatibility scores
-6. **Notification Service** - Email (SES) and in-app notifications
+2. **Profile Service** - Resume upload, AI parsing (Textract), profile management, manual skill scores
+3. **Skills Service** - Skill browsing, categories, search (public API)
+4. **Interview Service** - Generate interviews, administer assessments, AI scoring (Bedrock)
+5. **Job Service** - Job CRUD operations, skill requirement management
+6. **Matching Service** - Calculate candidate-job compatibility scores
+7. **Notification Service** - Email (SES) and in-app notifications
 
 ### Key Data Models
 
@@ -78,6 +79,24 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - Education and work experience tables don't have `updated_at` column (only base profile does)
 - Returns nested JSON with education and work experience arrays
 - Authorization check: queries join through `candidate_profiles` to verify ownership
+- Manual skill score management:
+  - `GET /api/v1/profiles/candidate/skills` - View candidate's skill scores
+  - `POST /api/v1/profiles/candidate/skills` - Add skill score (0-100 validation)
+  - `PUT /api/v1/profiles/candidate/skills/:skillId` - Update skill score
+  - `DELETE /api/v1/profiles/candidate/skills/:skillId` - Remove skill
+  - Skill scores stored in `user_skill_scores` with NULL `interview_id` for manual entries
+  - Auto-expiry set to 1 year from entry date
+
+**Skills Service** (Port 3003):
+- Public API (no authentication required for browsing skills)
+- GET /api/v1/skills - List all skills with pagination, filtering, and search
+  - Supports `?page=1&limit=20` for pagination
+  - Supports `?category=programming` for filtering by category
+  - Supports `?search=Python` for case-insensitive name search
+  - Supports `?active=true` to filter active/inactive skills
+- GET /api/v1/skills/categories - Get distinct skill categories
+- GET /api/v1/skills/:id - Get specific skill details
+- Skills seeded in Phase 0 (35 skills across 5 categories: programming, data_science, cloud, ai, finance)
 
 **Job Service** (Port 3002):
 - Employer-only routes for creating/modifying jobs (role-based access control)
@@ -176,11 +195,12 @@ cd common && npm run dev      # Watch mode - rebuilds on changes
 
 # Run individual services (Phase 1+, once services are implemented)
 npm run dev:auth              # Start auth service on port 3000
-npm run dev:profile           # Start profile service
-npm run dev:interview         # Start interview service
-npm run dev:job               # Start job service
-npm run dev:matching          # Start matching service
-npm run dev:notification      # Start notification service
+npm run dev:profile           # Start profile service on port 3001
+npm run dev:job               # Start job service on port 3002
+npm run dev:skill             # Start skills service on port 3003
+npm run dev:interview         # Start interview service (Phase 2+)
+npm run dev:matching          # Start matching service (Phase 1, not yet implemented)
+npm run dev:notification      # Start notification service (Phase 2+)
 ```
 
 **Docker & Database**:
@@ -215,10 +235,11 @@ npm run test:coverage              # Generate coverage report
 ./scripts/test-auth-api.sh         # Test Auth Service (9 tests)
 ./scripts/test-profile-api.sh      # Test Profile Service (14 tests)
 ./scripts/test-job-api.sh          # Test Job Service (13 tests)
+./scripts/test-skills-api.sh       # Test Skills Service (17 tests)
 
 # Phase Test Suites
 ./scripts/test-phase0.sh           # Verify Phase 0 foundation
-./scripts/test-phase1.sh           # Verify Phase 1 services (24 tests)
+./scripts/test-phase1.sh           # Verify Phase 1 services (30 tests)
 ```
 
 ### Adding a New Service
@@ -378,10 +399,11 @@ See [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) for complete details.
 
 **Phase 1 (Current)**: MVP - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
 - ✅ Auth Service (local auth with JWT) - `/api/v1/auth/*` on port 3000
-- ✅ Profile Service (CRUD operations) - `/api/v1/profiles/*` on port 3001
+- ✅ Profile Service (CRUD operations + manual skill scores) - `/api/v1/profiles/*` on port 3001
 - ✅ Job Service (posting and management) - `/api/v1/jobs/*` on port 3002
-- 🔄 Basic matching (manual skill scores)
-- 🔄 Frontend (React + TypeScript)
+- ✅ Skills Service (browsing and search) - `/api/v1/skills/*` on port 3003
+- 🔄 Matching Service (basic matching algorithm) - Not yet implemented
+- 🔄 Frontend (React + TypeScript) - Not yet implemented
 
 **Phase 2**: Interview system with AI scoring
 **Phase 3**: Search, analytics, enhanced features

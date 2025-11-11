@@ -8,6 +8,10 @@ import {
   addWorkExperience,
   updateWorkExperience,
   deleteWorkExperience,
+  getCandidateSkills,
+  addCandidateSkill,
+  updateCandidateSkill,
+  deleteCandidateSkill,
 } from '../controllers/profileController';
 import { authenticate } from '../middleware/authMiddleware';
 
@@ -71,5 +75,33 @@ router.put('/candidate/experience/:experienceId', updateWorkExperience);
  * @access  Private (Candidate only)
  */
 router.delete('/candidate/experience/:experienceId', deleteWorkExperience);
+
+/**
+ * @route   GET /api/v1/profiles/candidate/skills
+ * @desc    Get candidate's skill scores
+ * @access  Private (Candidate only)
+ */
+router.get('/candidate/skills', getCandidateSkills);
+
+/**
+ * @route   POST /api/v1/profiles/candidate/skills
+ * @desc    Add manual skill score (MVP - no interview)
+ * @access  Private (Candidate only)
+ */
+router.post('/candidate/skills', addCandidateSkill);
+
+/**
+ * @route   PUT /api/v1/profiles/candidate/skills/:skillId
+ * @desc    Update skill score
+ * @access  Private (Candidate only)
+ */
+router.put('/candidate/skills/:skillId', updateCandidateSkill);
+
+/**
+ * @route   DELETE /api/v1/profiles/candidate/skills/:skillId
+ * @desc    Delete skill from profile
+ * @access  Private (Candidate only)
+ */
+router.delete('/candidate/skills/:skillId', deleteCandidateSkill);
 
 export default router;

@@ -9,8 +9,9 @@
   "scripts": {
     "dev:auth": "npm run dev --workspace=services/auth-service",
     "dev:profile": "npm run dev --workspace=services/profile-service",
-    "dev:interview": "npm run dev --workspace=services/interview-service",
     "dev:job": "npm run dev --workspace=services/job-service",
+    "dev:skill": "npm run dev --workspace=services/skill-service",
+    "dev:interview": "npm run dev --workspace=services/interview-service",
     "dev:matching": "npm run dev --workspace=services/matching-service",
     "dev:notification": "npm run dev --workspace=services/notification-service",
     "test": "jest",

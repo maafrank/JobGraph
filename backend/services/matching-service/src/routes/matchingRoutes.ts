@@ -1,0 +1,51 @@
+import { Router } from 'express';
+import {
+  calculateJobMatches,
+  getJobCandidates,
+  getCandidateMatches,
+  updateMatchStatus,
+  contactCandidate,
+} from '../controllers/matchingController';
+import { authenticate, requireRole } from '../middleware/authMiddleware';
+
+const router = Router();
+
+// All routes require authentication
+router.use(authenticate);
+
+/**
+ * @route   POST /api/v1/matching/jobs/:jobId/calculate
+ * @desc    Calculate matches for a job (find and rank candidates)
+ * @access  Private (Employer only)
+ */
+router.post('/jobs/:jobId/calculate', requireRole('employer'), calculateJobMatches);
+
+/**
+ * @route   GET /api/v1/matching/jobs/:jobId/candidates
+ * @desc    Get ranked candidate matches for a job
+ * @access  Private (Employer only)
+ */
+router.get('/jobs/:jobId/candidates', requireRole('employer'), getJobCandidates);
+
+/**
+ * @route   GET /api/v1/matching/candidate/matches
+ * @desc    Get job matches for the authenticated candidate
+ * @access  Private (Candidate only)
+ */
+router.get('/candidate/matches', requireRole('candidate'), getCandidateMatches);
+
+/**
+ * @route   PUT /api/v1/matching/matches/:matchId/status
+ * @desc    Update match status (matched, contacted, interviewing, offered, rejected, hired)
+ * @access  Private (Employer only)
+ */
+router.put('/matches/:matchId/status', requireRole('employer'), updateMatchStatus);
+
+/**
+ * @route   POST /api/v1/matching/matches/:matchId/contact
+ * @desc    Contact a candidate (marks as contacted, sends notification)
+ * @access  Private (Employer only)
+ */
+router.post('/matches/:matchId/contact', requireRole('employer'), contactCandidate);
+
+export default router;

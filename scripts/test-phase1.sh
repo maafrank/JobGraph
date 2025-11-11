@@ -560,6 +560,122 @@ fi
 
 echo ""
 
+# ============================================================================
+# MATCHING SERVICE TESTS (Port 3004)
+# ============================================================================
+
+# Test 31: Check if Matching Service is running
+echo "Test 31: Check if Matching Service is running..."
+MATCHING_HEALTH=$(curl -s http://localhost:3004/health 2>/dev/null || echo "")
+if echo "$MATCHING_HEALTH" | grep -q "healthy"; then
+  test_result 0 "Matching Service is healthy"
+else
+  test_result 1 "Matching Service is not running"
+fi
+
+echo ""
+
+# Test 32: Calculate job matches (employer must have job with skills)
+echo "Test 32: Calculate job matches..."
+if [ -n "$TEST_JOB_ID" ] && [ -n "$EMPLOYER_TOKEN" ]; then
+  CALC_MATCHES_RESPONSE=$(curl -s -X POST "http://localhost:3004/api/v1/matching/jobs/${TEST_JOB_ID}/calculate" \
+    -H "Authorization: Bearer ${EMPLOYER_TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$CALC_MATCHES_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Calculate matches successful"
+    TOTAL_MATCHES=$(echo "$CALC_MATCHES_RESPONSE" | sed -n 's/.*"totalMatches":\([0-9]*\).*/\1/p')
+    echo "  Found $TOTAL_MATCHES candidate matches"
+  else
+    test_result 1 "Calculate matches failed"
+    echo "  Response: $CALC_MATCHES_RESPONSE" | head -c 200
+  fi
+else
+  test_result 1 "Cannot test calculate matches (missing job ID or employer token)"
+  echo "  Job ID: '$TEST_JOB_ID', Employer token length: ${#EMPLOYER_TOKEN}"
+fi
+
+echo ""
+
+# Test 33: Get job candidates (employer view)
+echo "Test 33: Get job candidates (employer view)..."
+if [ -n "$TEST_JOB_ID" ] && [ -n "$EMPLOYER_TOKEN" ]; then
+  GET_CANDIDATES_RESPONSE=$(curl -s -X GET "http://localhost:3004/api/v1/matching/jobs/${TEST_JOB_ID}/candidates" \
+    -H "Authorization: Bearer ${EMPLOYER_TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$GET_CANDIDATES_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Get job candidates successful"
+    CANDIDATE_COUNT=$(echo "$GET_CANDIDATES_RESPONSE" | grep -o "matchId" | wc -l | xargs)
+    echo "  Retrieved $CANDIDATE_COUNT candidate matches"
+  else
+    test_result 1 "Get job candidates failed"
+  fi
+else
+  test_result 1 "Cannot test get candidates (missing job ID or employer token)"
+fi
+
+echo ""
+
+# Test 34: Get candidate matches (candidate view)
+echo "Test 34: Get candidate matches (candidate view)..."
+if [ -n "$TOKEN" ]; then
+  GET_MY_MATCHES_RESPONSE=$(curl -s -X GET "http://localhost:3004/api/v1/matching/candidate/matches" \
+    -H "Authorization: Bearer ${TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$GET_MY_MATCHES_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Get candidate matches successful"
+    MY_MATCH_COUNT=$(echo "$GET_MY_MATCHES_RESPONSE" | grep -o "matchId" | wc -l | xargs)
+    echo "  Candidate has $MY_MATCH_COUNT job matches"
+  else
+    test_result 1 "Get candidate matches failed"
+  fi
+else
+  test_result 1 "Cannot test get candidate matches (no token)"
+fi
+
+echo ""
+
+# Test 35: Contact a candidate (employer action)
+echo "Test 35: Contact a candidate..."
+# Extract first match ID from the candidates response
+MATCH_ID=$(echo "$GET_CANDIDATES_RESPONSE" | sed -n 's/.*"matchId":"\([^"]*\)".*/\1/p' | head -1)
+
+if [ -n "$MATCH_ID" ] && [ "$MATCH_ID" != "" ] && [ -n "$EMPLOYER_TOKEN" ]; then
+  CONTACT_RESPONSE=$(curl -s -X POST "http://localhost:3004/api/v1/matching/matches/${MATCH_ID}/contact" \
+    -H "Authorization: Bearer ${EMPLOYER_TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$CONTACT_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Contact candidate successful"
+  else
+    test_result 1 "Contact candidate failed"
+    echo "  Response: $CONTACT_RESPONSE" | head -c 200
+  fi
+else
+  test_result 1 "Cannot test contact candidate (missing match ID or employer token)"
+  echo "  Match ID: '$MATCH_ID', Employer token length: ${#EMPLOYER_TOKEN}"
+fi
+
+echo ""
+
+# Test 36: Update match status
+echo "Test 36: Update match status..."
+if [ -n "$MATCH_ID" ] && [ "$MATCH_ID" != "" ] && [ -n "$EMPLOYER_TOKEN" ]; then
+  UPDATE_STATUS_RESPONSE=$(curl -s -X PUT "http://localhost:3004/api/v1/matching/matches/${MATCH_ID}/status" \
+    -H "Authorization: Bearer ${EMPLOYER_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d '{"status": "shortlisted"}' 2>/dev/null || echo "")
+
+  if echo "$UPDATE_STATUS_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Update match status successful"
+  else
+    test_result 1 "Update match status failed"
+    echo "  Response: $UPDATE_STATUS_RESPONSE" | head -c 200
+  fi
+else
+  test_result 1 "Cannot test update match status (missing match ID or employer token)"
+fi
+
+echo ""
+
 # Summary
 echo "============================"
 echo "📊 Test Summary"
@@ -576,6 +692,7 @@ if [ $TESTS_FAILED -eq 0 ]; then
   echo "  • Profile Service: http://localhost:3001"
   echo "  • Job Service: http://localhost:3002"
   echo "  • Skills Service: http://localhost:3003"
+  echo "  • Matching Service: http://localhost:3004"
   echo ""
   echo "Database:"
   echo "  • PostgreSQL: localhost:5432"
@@ -583,9 +700,9 @@ if [ $TESTS_FAILED -eq 0 ]; then
   echo "  • Adminer: http://localhost:8080"
   echo ""
   echo "Next Steps:"
-  echo "  1. Build Matching Service"
-  echo "  2. Create Frontend"
-  echo "  3. Add more comprehensive tests"
+  echo "  1. Create Frontend (React + TypeScript)"
+  echo "  2. Add E2E testing"
+  echo "  3. Prepare for Phase 2 (Interview System)"
   exit 0
 else
   echo -e "${YELLOW}⚠ Some tests failed. Please review the failures above.${NC}"

@@ -107,6 +107,32 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 - Job status workflow: draft → active → closed/cancelled
 - Supports pagination, filtering, and search for job listings
 
+**Matching Service** (Port 3004):
+- Core matching algorithm calculates weighted compatibility scores
+- POST /api/v1/matching/jobs/:jobId/calculate - Calculate matches for a job
+  - Finds candidates with ALL required skills
+  - Checks minimum score thresholds
+  - Calculates weighted average: Σ(skill_score[i] × weight[i]) / Σ(weight[i])
+  - Ranks candidates by overall score
+  - Stores matches in `job_matches` table
+- GET /api/v1/matching/jobs/:jobId/candidates - Employer views ranked candidates
+  - Returns candidates sorted by match_rank
+  - Includes skill breakdown with individual scores
+  - Shows overall match score and candidate details
+- GET /api/v1/matching/candidate/matches - Candidate views job matches
+  - Returns all jobs matched to the candidate
+  - Shows match score, rank, and job details
+- POST /api/v1/matching/matches/:matchId/contact - Employer contacts candidate
+  - Updates status to 'contacted'
+  - Sets contacted_at timestamp
+  - Placeholder for notification (Phase 2: SES email)
+- PUT /api/v1/matching/matches/:matchId/status - Update match status
+  - **IMPORTANT**: Valid statuses must match database constraint: `matched`, `viewed`, `contacted`, `shortlisted`, `rejected`, `hired`
+  - Employer-only action
+- Algorithm enforces: candidates must have ALL required skills and meet minimum thresholds
+- Optional skills are included in scoring if candidate has them
+- Database columns use `city`, `state` (not `location_city`, `location_state`)
+
 ### Common Package API
 
 **Database** (`@jobgraph/common/database`):
@@ -193,13 +219,13 @@ npm run format                # Format code with Prettier
 cd common && npm run build    # Compile TypeScript to dist/
 cd common && npm run dev      # Watch mode - rebuilds on changes
 
-# Run individual services (Phase 1+, once services are implemented)
+# Run individual services (Phase 1 - all 5 services implemented)
 npm run dev:auth              # Start auth service on port 3000
 npm run dev:profile           # Start profile service on port 3001
 npm run dev:job               # Start job service on port 3002
 npm run dev:skill             # Start skills service on port 3003
+npm run dev:matching          # Start matching service on port 3004
 npm run dev:interview         # Start interview service (Phase 2+)
-npm run dev:matching          # Start matching service (Phase 1, not yet implemented)
 npm run dev:notification      # Start notification service (Phase 2+)
 ```
 
@@ -239,7 +265,7 @@ npm run test:coverage              # Generate coverage report
 
 # Phase Test Suites
 ./scripts/test-phase0.sh           # Verify Phase 0 foundation
-./scripts/test-phase1.sh           # Verify Phase 1 services (30 tests)
+./scripts/test-phase1.sh           # Verify Phase 1 services (36 tests, all passing ✅)
 ```
 
 ### Adding a New Service
@@ -397,13 +423,13 @@ See [AWS_INFRASTRUCTURE.md](AWS_INFRASTRUCTURE.md) for complete details.
 
 **Phase 0**: Complete ✅ - Foundation established (Docker, PostgreSQL, Redis, Common package)
 
-**Phase 1 (Current)**: MVP - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
+**Phase 1 (Current)**: MVP Backend Complete ✅ - See [PHASE_1_CHECKLIST.md](PHASE_1_CHECKLIST.md)
 - ✅ Auth Service (local auth with JWT) - `/api/v1/auth/*` on port 3000
 - ✅ Profile Service (CRUD operations + manual skill scores) - `/api/v1/profiles/*` on port 3001
 - ✅ Job Service (posting and management) - `/api/v1/jobs/*` on port 3002
 - ✅ Skills Service (browsing and search) - `/api/v1/skills/*` on port 3003
-- 🔄 Matching Service (basic matching algorithm) - Not yet implemented
-- 🔄 Frontend (React + TypeScript) - Not yet implemented
+- ✅ Matching Service (weighted matching algorithm) - `/api/v1/matching/*` on port 3004
+- 🔄 Frontend (React + TypeScript) - Next to implement
 
 **Phase 2**: Interview system with AI scoring
 **Phase 3**: Search, analytics, enhanced features

@@ -148,12 +148,21 @@ export const LoginPage = () => {
           </form>
         </Card>
 
-        <div className="mt-6 text-center text-sm text-gray-600">
-          <p>Test accounts available:</p>
-          <p className="mt-1">
-            Candidate: candidate@test.com / Test123!
-          </p>
-          <p>Employer: employer@test.com / Test123!</p>
+        <div className="mt-6 text-center">
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <p className="text-sm font-semibold text-blue-900 mb-2">Test Accounts</p>
+            <div className="text-sm text-blue-800 space-y-1">
+              <p>
+                <span className="font-medium">Candidate:</span> candidate@test.com / TestPass123
+              </p>
+              <p>
+                <span className="font-medium">Employer:</span> employer@test.com / TestPass123
+              </p>
+              <p>
+                <span className="font-medium">Admin:</span> admin@test.com / AdminPass123
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

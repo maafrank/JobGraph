@@ -36,6 +36,7 @@ export async function createJob(req: Request, res: Response): Promise<void> {
       employmentType,
       experienceLevel,
       expiresAt,
+      status,
     } = req.body;
 
     // Validate required fields
@@ -66,7 +67,7 @@ export async function createJob(req: Request, res: Response): Promise<void> {
         city, state, country, remote_option,
         salary_min, salary_max, salary_currency,
         employment_type, experience_level, expires_at, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'draft')
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
       RETURNING job_id, company_id, posted_by, title, description, requirements, responsibilities,
                 city, state, country, remote_option,
                 salary_min, salary_max, salary_currency,
@@ -76,7 +77,7 @@ export async function createJob(req: Request, res: Response): Promise<void> {
         companyId, userId, title, description, requirements, responsibilities,
         city, state, country, remoteOption,
         salaryMin, salaryMax, salaryCurrency || 'USD',
-        employmentType, experienceLevel, expiresAt
+        employmentType, experienceLevel, expiresAt, status || 'draft'
       ]
     );
 

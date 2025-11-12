@@ -276,7 +276,7 @@
 
 ---
 
-## 7. Frontend MVP (Week 9-10) 🔄 IN PROGRESS
+## 7. Frontend MVP (Week 9-10) ✅ COMPLETE
 
 ### 7.1 Setup & Authentication ✅ COMPLETE
 - [x] Create React + TypeScript + Vite project
@@ -308,7 +308,13 @@
 - [x] Homepage with automatic redirect for authenticated users
 
 ### 7.3 Candidate Pages
-- [ ] Candidate dashboard (overview stats, quick actions)
+- [x] Candidate dashboard (overview stats, quick actions) ✅ COMPLETE
+  - [x] Profile completion percentage
+  - [x] Skills count display
+  - [x] Job matches count
+  - [x] Quick action buttons for profile, skills, matches
+  - [x] Getting started checklist with progress tracking
+  - [x] Recent matches preview (top 3)
 - [x] Profile management page ✅ COMPLETE
   - [x] View/Edit basic info (headline, summary, location, years of experience)
   - [x] Remote preference dropdown (onsite, hybrid, remote, flexible)
@@ -364,7 +370,12 @@
   - [x] Empty state with link to browse jobs
 
 ### 7.4 Employer Pages
-- [ ] Employer dashboard (company stats, recent jobs)
+- [x] Employer dashboard (company stats, recent jobs) ✅ COMPLETE
+  - [x] Active jobs count
+  - [x] Total matches count
+  - [x] Contacted candidates count
+  - [x] Quick action button to post new job
+  - [x] Getting started guide for new employers
 - [x] Company profile page ✅ COMPLETE
   - [x] Create company profile (first-time flow)
   - [x] View/Edit company details
@@ -385,11 +396,16 @@
   - [x] Field name mapping (camelCase frontend ↔ snake_case database)
   - [x] Database migration: Added responsibilities column to jobs table
   - [x] All CRUD operations for job skills (add/edit/remove)
-- [ ] Job management page
-  - [ ] List all posted jobs (active/draft/closed)
-  - [ ] Edit/close/reopen jobs
-  - [ ] Trigger matching calculation
-  - [ ] View match statistics
+- [x] Job management page ✅ COMPLETE
+  - [x] List all posted jobs (active/draft/closed)
+  - [x] Status filter tabs (all, active, draft, closed)
+  - [x] Edit/close/reopen jobs
+  - [x] Trigger matching calculation (auto-calculates for active jobs on page load)
+  - [x] View match statistics (match count per job)
+  - [x] Delete jobs
+  - [x] Navigate to View Candidates page
+  - [x] Publish draft jobs
+  - [x] Display job details (salary, location, remote option, posted date, required skills count)
 - [x] Candidate matches page (per job) ✅ COMPLETE
   - [x] View ranked candidates for selected job
   - [x] See overall match score and rank
@@ -528,9 +544,8 @@ Once all Phase 1 items are complete, the MVP is ready for Phase 2, which will in
 ✅ **4. Skills Management**: Complete - Skills API and manual skill score management
 ✅ **5. Job Service**: Complete - Job posting and skills management
 ✅ **6. Matching Service**: Complete - Core matching algorithm with weighted scoring
-✅ **7. Frontend Authentication & Layout**: COMPLETE - React app with auth flow and common components
+✅ **7. Frontend MVP**: FULLY COMPLETE - All candidate and employer pages implemented
 ⏳ **3. File Upload & Resume Parsing**: Not started (deferred to Phase 2)
-🔄 **7. Frontend Pages**: In Progress - Dashboard and feature pages needed
 
 **Services Running:**
 - Auth Service (Port 3000) - `/api/v1/auth/*`
@@ -558,42 +573,111 @@ Once all Phase 1 items are complete, the MVP is ready for Phase 2, which will in
 - ✅ Responsive navbar with role-based menus
 - ✅ Homepage with auto-redirect for authenticated users
 - ✅ Test credentials displayed on login page
+
+**Candidate Pages (All Complete):**
+- ✅ **Candidate Dashboard** - Profile completion %, skills count, matches count, quick actions, getting started checklist
 - ✅ **Profile Management Page** - Complete CRUD for basic info, education, and work experience
-  - Field name mapping between backend (snake_case) and frontend (camelCase)
-  - Modal forms with validation
-  - Real-time updates with profile refresh
-- ✅ **Skills Management Page** - Complete CRUD for manual skill scores
-  - Two-tab interface (My Skills, Browse Skills)
-  - Category filtering and search functionality
-  - Add/edit/delete skills with 0-100 score slider
-  - Color-coded proficiency levels (Beginner/Intermediate/Advanced/Expert)
-  - Visual feedback and score guidelines
-  - Duplicate prevention and expiry date display
-  - Backend API field name consistency (snake_case)
-- ✅ **Job Matches Page** - Browse all jobs with calculated match scores (see 7.3)
-- ✅ **Company Profile Page** - Complete CRUD for employer company profiles
-  - First-time setup flow for employers without a company
-  - View/Edit mode toggle
-  - Company details: name, description, industry, size, website, location
-  - Auto-detect if user has company (404 = show create form)
-  - Industry dropdown (technology, finance, healthcare, education, etc.)
-  - Company size options (1-10, 11-50, 51-200, 201-500, 501-1000, 1001-5000, 5000+)
-  - Form validation with required fields
-  - Backend API returns camelCase with nested location object
-  - Frontend types updated to match backend format
+- ✅ **Skills Management Page** - Complete CRUD for manual skill scores with proficiency sliders
+- ✅ **Job Matches Page** - Browse all jobs with real-time match scores, required vs optional skills, apply to jobs
+- ✅ **My Applications Page** - Track all applications with status filtering, withdraw functionality
+
+**Employer Pages (All Complete):**
+- ✅ **Employer Dashboard** - Active jobs count, total matches, contacted candidates, getting started guide
+- ✅ **Company Profile Page** - First-time setup flow, view/edit company details
+- ✅ **Job Posting Page** - Create/edit jobs with skills, weights, thresholds, responsibilities
+- ✅ **Job Management Page** - List all jobs, status filters, publish drafts, close/reopen, auto-calculate matches, delete jobs
+- ✅ **Candidate Matches Page** - View ranked candidates, application integration, status management, contact candidates
 
 **Next Steps:**
-1. **Frontend Pages (Week 9-10)** - ← CURRENT
-   - ✅ Profile Management Page (Complete)
-   - ✅ Skills Management Page (Complete)
-   - ✅ Job Matches Page (Complete)
-   - ✅ Company Profile Page (Complete)
-   - Next: Job Posting Form - Create/edit jobs with skills and requirements
-   - Then: Job Management Page - List jobs, trigger matching, view stats
-   - Then: Candidate Matches Page - View ranked candidates for jobs
-   - Then: Candidate Dashboard (overview stats, quick actions)
-   - Then: Employer Dashboard (company stats, recent jobs)
-2. **Integration & Testing (Week 11)** - E2E tests and polish
-3. **Phase 2** - Interview System with AI-powered evaluation
+1. **Integration & Testing (Week 11)** - ← CURRENT PRIORITY
+   - End-to-end testing of complete user flows
+   - Manual testing and bug fixes
+   - Performance testing
+   - Code cleanup and documentation
+2. **Phase 2** - Interview System with AI-powered evaluation
 
-**Recommended**: Continue with **Job Posting Form** (section 7.4) - Allow employers to create and edit job postings with required/optional skills, weights, and minimum thresholds.
+**Phase 1 Status**: ✅ **ALL CORE FEATURES COMPLETE!** The MVP is fully functional with all planned candidate and employer features implemented. Ready for comprehensive testing.
+
+---
+
+## Phase 1 Enhancements & Polish (Optional - Can be done now or deferred)
+
+### Profile Enhancements
+- [ ] User photo upload for candidate profiles
+  - [ ] Add profile_photo_url field to candidate_profiles table
+  - [ ] S3 integration for photo storage (similar to resume upload pattern)
+  - [ ] Frontend upload component with image preview
+  - [ ] Image validation (file type, size limits)
+  - [ ] Display photo in profile page, dashboard, and candidate cards
+
+### Settings Pages
+- [ ] Candidate Settings Page
+  - [ ] Account settings (email, password change)
+  - [ ] Notification preferences (placeholder for Phase 2)
+  - [ ] Privacy settings (profile visibility)
+  - [ ] Delete account functionality
+- [ ] Employer Settings Page
+  - [ ] Account settings (email, password change)
+  - [ ] Company user management (add/remove team members - Phase 2+)
+  - [ ] Notification preferences
+  - [ ] Delete account functionality
+
+### Enhanced Registration Flow
+- [ ] Employer-specific registration form
+  - [ ] Collect company name during registration
+  - [ ] Auto-create company_profiles record on employer registration
+  - [ ] Link user to company via company_users table
+  - [ ] Skip "Create Company" step in onboarding
+- [ ] Update database schema to support company_name in registration
+- [ ] Backend: Modify registration endpoint to handle employer-specific data
+- [ ] Frontend: Conditional registration form based on role selection
+
+---
+
+## Testing & Quality Assurance
+
+### Test Scripts (Automated)
+- [x] test-phase0.sh - Foundation tests (complete)
+- [x] test-phase1.sh - All 5 services integration tests (complete)
+- [x] Update test-phase1.sh with latest changes ✅
+  - [x] Job applications tests (Tests 45-47, 49-51)
+  - [x] Enhanced matching algorithm tests (Test 48: browse with scores)
+  - [x] Company profile tests (Tests 21-24)
+  - [x] Employer dashboard stats (Test 52)
+  - **Total: 52 comprehensive integration tests**
+- [ ] Create test-frontend-e2e.sh (optional - manual testing sufficient for now)
+
+### Manual Testing Checklist
+- [ ] **Candidate Flow**:
+  - [ ] Register → Login → Complete Profile → Add Skills → Browse Jobs → Apply to Job → View Applications
+  - [ ] Test all CRUD operations on profile, education, work experience, skills
+  - [ ] Verify match scores calculate correctly
+  - [ ] Test application withdrawal
+- [ ] **Employer Flow**:
+  - [ ] Register → Login → Create Company → Post Job → Add Skills → View Jobs → Calculate Matches → View Candidates → Contact Candidate
+  - [ ] Test job status transitions (draft → active → closed)
+  - [ ] Verify candidate ranking by match score
+  - [ ] Test application review and status updates
+- [ ] **Cross-cutting Concerns**:
+  - [ ] Test authentication (login, logout, token refresh)
+  - [ ] Test authorization (role-based access control)
+  - [ ] Test error handling and validation
+  - [ ] Test responsive design (mobile, tablet, desktop)
+
+### Performance Review
+- [ ] Create PERFORMANCE_ANALYSIS.md document with:
+  - [ ] Identified pain points and bottlenecks
+  - [ ] Potential solutions (1-2 per issue)
+  - [ ] Priority ranking (P0: critical, P1: important, P2: nice-to-have)
+  - [ ] Focus areas: database queries, API response times, frontend rendering, matching algorithm
+
+### Documentation Strategy
+- [ ] Keep minimal, high-value documentation only:
+  - [x] CLAUDE.md - Main guidance for AI assistants (keep updated)
+  - [x] DATABASE_SCHEMA.sql - Schema with comments (keep updated)
+  - [x] PHASE_1_CHECKLIST.md - Progress tracking (keep updated)
+  - [ ] SETUP_INSTRUCTIONS.md - Quick start guide for new developers (one-time creation)
+  - [ ] API_ENDPOINTS.md - Quick reference for available endpoints (optional, generated from code)
+- [ ] Avoid over-documentation that becomes stale
+- [ ] Use inline code comments for complex business logic
+- [ ] Keep README.md concise with links to other docs

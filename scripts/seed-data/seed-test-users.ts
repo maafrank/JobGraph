@@ -8,7 +8,7 @@ async function seedTestUsers() {
     console.log('🌱 Seeding test users...');
 
     // Test candidate
-    const candidatePassword = await hashPassword('Test123!');
+    const candidatePassword = await hashPassword('TestPass123');
     await client.query(
       `INSERT INTO users (email, password_hash, first_name, last_name, role, email_verified)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -17,7 +17,7 @@ async function seedTestUsers() {
     );
 
     // Test employer
-    const employerPassword = await hashPassword('Test123!');
+    const employerPassword = await hashPassword('TestPass123');
     await client.query(
       `INSERT INTO users (email, password_hash, first_name, last_name, role, email_verified)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -26,7 +26,7 @@ async function seedTestUsers() {
     );
 
     // Test admin
-    const adminPassword = await hashPassword('Admin123!');
+    const adminPassword = await hashPassword('AdminPass123');
     await client.query(
       `INSERT INTO users (email, password_hash, first_name, last_name, role, email_verified)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -37,9 +37,9 @@ async function seedTestUsers() {
     const result = await client.query('SELECT COUNT(*) FROM users');
     console.log(`✓ Seeded ${result.rows[0].count} users`);
     console.log('\nTest credentials:');
-    console.log('  Candidate: candidate@test.com / Test123!');
-    console.log('  Employer: employer@test.com / Test123!');
-    console.log('  Admin: admin@test.com / Admin123!');
+    console.log('  Candidate: candidate@test.com / TestPass123');
+    console.log('  Employer: employer@test.com / TestPass123');
+    console.log('  Admin: admin@test.com / AdminPass123');
 
   } catch (error) {
     console.error('Error seeding users:', error);

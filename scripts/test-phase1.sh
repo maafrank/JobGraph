@@ -102,6 +102,20 @@ fi
 
 echo ""
 
+# Data Preparation: Ensure test data is seeded
+echo "📦 Data Preparation: Seeding test data..."
+SKILL_COUNT=$(docker exec jobgraph-postgres psql -U postgres -d jobgraph_dev -t -c "SELECT COUNT(*) FROM skills;" 2>/dev/null | xargs)
+
+if [ "$SKILL_COUNT" -eq 0 ]; then
+  echo "   Seeding skills database..."
+  cd backend && npx ts-node ../scripts/seed-data/seed-skills.ts > /dev/null 2>&1 && cd ..
+  echo "   ✓ Skills seeded"
+else
+  echo "   ✓ Skills already seeded ($SKILL_COUNT skills found)"
+fi
+
+echo ""
+
 # Test 6: Check if Auth Service is running
 echo "Test 6: Checking Auth Service (Port 3000)..."
 AUTH_HEALTH=$(curl -s http://localhost:3000/health 2>/dev/null)
@@ -132,15 +146,15 @@ echo ""
 echo "Test 8: Testing Auth Service - Login..."
 LOGIN_RESPONSE=$(curl -s -X POST http://localhost:3000/api/v1/auth/login \
   -H "Content-Type: application/json" \
-  -d '{"email": "candidate@test.com", "password": "Test123!"}' 2>/dev/null)
+  -d "{\"email\": \"candidate@test.com\", \"password\": \"TestPass123\"}" 2>/dev/null)
 
-if echo "$LOGIN_RESPONSE" | grep -q "token"; then
+if echo "$LOGIN_RESPONSE" | grep -q "accessToken"; then
   test_result 0 "User login successful"
-  TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.data.token')
+  TOKEN=$(echo "$LOGIN_RESPONSE" | jq -r '.data.accessToken')
   echo "   Token received (length: ${#TOKEN})"
 else
   test_result 1 "User login failed"
-  echo "   Response: $(echo $LOGIN_RESPONSE | jq -r '.error.message // "Unknown error"')"
+  echo "   Response: $(echo "$LOGIN_RESPONSE" | jq -r '.error.message // "Unknown error"')"
   TOKEN=""
 fi
 
@@ -192,9 +206,9 @@ if echo "$LOGIN_RESPONSE" | grep -q "refreshToken"; then
     -H "Content-Type: application/json" \
     -d "{\"refreshToken\": \"$REFRESH_TOKEN\"}" 2>/dev/null)
 
-  if echo "$REFRESH_RESPONSE" | grep -q "token"; then
+  if echo "$REFRESH_RESPONSE" | grep -q "accessToken"; then
     test_result 0 "Refresh token successful"
-    NEW_TOKEN=$(echo "$REFRESH_RESPONSE" | jq -r '.data.token')
+    NEW_TOKEN=$(echo "$REFRESH_RESPONSE" | jq -r '.data.accessToken')
     echo "   New access token received (length: ${#NEW_TOKEN})"
   else
     test_result 1 "Refresh token failed"
@@ -252,7 +266,7 @@ REGISTER_VERIFY_RESPONSE=$(curl -s -X POST http://localhost:3000/api/v1/auth/reg
   -H "Content-Type: application/json" \
   -d "{
     \"email\": \"$VERIFY_EMAIL\",
-    \"password\": \"Test123!\",
+    \"password\": \"TestPass123!\",
     \"firstName\": \"Verify\",
     \"lastName\": \"Test\",
     \"role\": \"candidate\"
@@ -412,8 +426,8 @@ echo ""
 if [ -z "$EMPLOYER_TOKEN" ]; then
   EMPLOYER_LOGIN=$(curl -s -X POST http://localhost:3000/api/v1/auth/login \
     -H "Content-Type: application/json" \
-    -d '{"email": "employer@test.com", "password": "Test123!"}' 2>/dev/null)
-  EMPLOYER_TOKEN=$(echo "$EMPLOYER_LOGIN" | jq -r '.data.token // empty')
+    -d "{\"email\": \"employer@test.com\", \"password\": \"TestPass123\"}" 2>/dev/null)
+  EMPLOYER_TOKEN=$(echo "$EMPLOYER_LOGIN" | jq -r '.data.accessToken // empty')
 fi
 
 # Test 21: Test Company Profile - Get My Company (Employer)
@@ -526,7 +540,7 @@ echo ""
 echo "Test 28: Testing Email Validation..."
 INVALID_EMAIL_RESPONSE=$(curl -s -X POST http://localhost:3000/api/v1/auth/register \
   -H "Content-Type: application/json" \
-  -d '{"email": "invalid-email", "password": "Test123!", "firstName": "Test", "lastName": "User", "role": "candidate"}' 2>/dev/null)
+  -d '{"email": "invalid-email", "password": "TestPass123", "firstName": "Test", "lastName": "User", "role": "candidate"}' 2>/dev/null)
 
 if echo "$INVALID_EMAIL_RESPONSE" | grep -q "INVALID_EMAIL"; then
   test_result 0 "Invalid email properly rejected"
@@ -558,12 +572,9 @@ if [ -n "$TOKEN" ] && [ -n "$COMPANY_ID" ]; then
   # Login as employer first
   EMPLOYER_LOGIN=$(curl -s -X POST http://localhost:3000/api/v1/auth/login \
     -H "Content-Type: application/json" \
-    -d '{
-      "email": "employer@test.com",
-      "password": "Test123!"
-    }' 2>/dev/null)
+    -d "{\"email\": \"employer@test.com\", \"password\": \"TestPass123\"}" 2>/dev/null)
 
-  EMPLOYER_TOKEN=$(echo "$EMPLOYER_LOGIN" | jq -r '.data.token // empty')
+  EMPLOYER_TOKEN=$(echo "$EMPLOYER_LOGIN" | jq -r '.data.accessToken // empty')
 
   if [ -n "$EMPLOYER_TOKEN" ]; then
     JOB_CREATE_RESPONSE=$(curl -s -X POST http://localhost:3002/api/v1/jobs \
@@ -578,7 +589,8 @@ if [ -n "$TOKEN" ] && [ -n "$COMPANY_ID" ]; then
         "country": "USA",
         "remoteOption": "remote",
         "employmentType": "full-time",
-        "experienceLevel": "mid"
+        "experienceLevel": "mid",
+        "status": "active"
       }' 2>/dev/null)
 
     if echo "$JOB_CREATE_RESPONSE" | grep -q "jobId"; then
@@ -663,7 +675,7 @@ echo "Test 34: Get skills list..."
 SKILLS_RESPONSE=$(curl -s "http://localhost:3003/api/v1/skills?limit=5" 2>/dev/null || echo "")
 if echo "$SKILLS_RESPONSE" | grep -q "\"success\":true"; then
   test_result 0 "Get skills successful"
-  SKILL_COUNT=$(echo "$SKILLS_RESPONSE" | grep -o "skillId" | wc -l | xargs)
+  SKILL_COUNT=$(echo "$SKILLS_RESPONSE" | grep -o "skill_id" | wc -l | xargs)
   echo "  Retrieved $SKILL_COUNT skills"
 else
   test_result 1 "Get skills failed"
@@ -685,7 +697,7 @@ echo ""
 # Test 36: Add manual skill score to candidate profile
 echo "Test 36: Add skill score to candidate profile..."
 # Get a skill ID - extract from the JSON response
-PYTHON_SKILL_ID=$(echo "$SKILLS_RESPONSE" | sed -n 's/.*"skillId":"\([^"]*\)".*/\1/p' | head -1)
+PYTHON_SKILL_ID=$(echo "$SKILLS_RESPONSE" | sed -n 's/.*"skill_id":"\([^"]*\)".*/\1/p' | head -1)
 
 if [ -n "$PYTHON_SKILL_ID" ] && [ "$PYTHON_SKILL_ID" != "" ] && [ -n "$TOKEN" ]; then
   ADD_SKILL_RESPONSE=$(curl -s -X POST http://localhost:3001/api/v1/profiles/candidate/skills \
@@ -870,6 +882,185 @@ fi
 
 echo ""
 
+# ============================================================================
+# JOB APPLICATIONS TESTS
+# ============================================================================
+
+# Test 45: Apply to a job (candidate action)
+echo "Test 45: Apply to job (candidate)..."
+if [ -n "$TEST_JOB_ID" ] && [ -n "$TOKEN" ]; then
+  APPLY_RESPONSE=$(curl -s -X POST "http://localhost:3002/api/v1/jobs/${TEST_JOB_ID}/apply" \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d '{
+      "coverLetter": "This is a test application submitted via Phase 1 test script."
+    }' 2>/dev/null || echo "")
+
+  if echo "$APPLY_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Apply to job successful"
+    APPLICATION_ID=$(echo "$APPLY_RESPONSE" | sed -n 's/.*"applicationId":"\([^"]*\)".*/\1/p' | head -1)
+    echo "  Application ID: ${APPLICATION_ID:0:20}..."
+  else
+    # May fail if already applied - that's acceptable
+    if echo "$APPLY_RESPONSE" | grep -q "ALREADY_APPLIED"; then
+      test_result 0 "Apply to job successful (already applied)"
+      # Try to get existing application ID from the database
+      USER_ID=$(echo "$ME_RESPONSE" | jq -r '.data.userId // empty')
+      if [ -n "$USER_ID" ]; then
+        APPLICATION_ID=$(docker exec -i jobgraph-postgres psql -U postgres -d jobgraph_dev -t -c \
+          "SELECT application_id FROM job_applications WHERE job_id = '${TEST_JOB_ID}' AND user_id = '${USER_ID}' LIMIT 1" 2>/dev/null | xargs)
+      fi
+    else
+      test_result 1 "Apply to job failed"
+      echo "  Response: $APPLY_RESPONSE" | head -c 200
+    fi
+  fi
+else
+  test_result 1 "Cannot test job application (missing job ID or token)"
+fi
+
+echo ""
+
+# Test 46: Get my applications (candidate view)
+echo "Test 46: Get my applications (candidate)..."
+if [ -n "$TOKEN" ]; then
+  MY_APPS_RESPONSE=$(curl -s -X GET "http://localhost:3002/api/v1/jobs/applications" \
+    -H "Authorization: Bearer ${TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$MY_APPS_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Get my applications successful"
+    APP_COUNT=$(echo "$MY_APPS_RESPONSE" | grep -o "applicationId" | wc -l | xargs)
+    echo "  Found $APP_COUNT applications"
+  else
+    test_result 1 "Get my applications failed"
+  fi
+else
+  test_result 1 "Cannot test get applications (no token)"
+fi
+
+echo ""
+
+# Test 47: Get application details (candidate view)
+echo "Test 47: Get application details (candidate)..."
+if [ -n "$TOKEN" ] && [ -n "$APPLICATION_ID" ] && [ "$APPLICATION_ID" != "" ]; then
+  APP_DETAILS_RESPONSE=$(curl -s -X GET "http://localhost:3002/api/v1/jobs/applications/${APPLICATION_ID}" \
+    -H "Authorization: Bearer ${TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$APP_DETAILS_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Get application details successful"
+  else
+    test_result 1 "Get application details failed"
+  fi
+else
+  test_result 1 "Cannot test application details (missing application ID or token)"
+  echo "  Application ID: '$APPLICATION_ID'"
+fi
+
+echo ""
+
+# Test 48: Browse jobs with match scores (candidate view)
+echo "Test 48: Browse jobs with match scores (candidate)..."
+if [ -n "$TOKEN" ]; then
+  BROWSE_JOBS_RESPONSE=$(curl -s -X GET "http://localhost:3004/api/v1/matching/candidate/browse-jobs?limit=10" \
+    -H "Authorization: Bearer ${TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$BROWSE_JOBS_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Browse jobs with scores successful"
+    JOBS_COUNT=$(echo "$BROWSE_JOBS_RESPONSE" | grep -o "overallScore" | wc -l | xargs)
+    echo "  Found $JOBS_COUNT jobs with match scores"
+  else
+    test_result 1 "Browse jobs with scores failed"
+    echo "  Response: $BROWSE_JOBS_RESPONSE" | head -c 200
+  fi
+else
+  test_result 1 "Cannot test browse jobs (no token)"
+fi
+
+echo ""
+
+# Test 49: Get application details (employer view)
+echo "Test 49: Get application details (employer)..."
+if [ -n "$EMPLOYER_TOKEN" ] && [ -n "$APPLICATION_ID" ] && [ "$APPLICATION_ID" != "" ]; then
+  EMP_APP_DETAILS=$(curl -s -X GET "http://localhost:3004/api/v1/matching/applications/${APPLICATION_ID}" \
+    -H "Authorization: Bearer ${EMPLOYER_TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$EMP_APP_DETAILS" | grep -q "\"success\":true"; then
+    test_result 0 "Get application details (employer) successful"
+    # Check if cover letter is visible
+    if echo "$EMP_APP_DETAILS" | grep -q "coverLetter"; then
+      echo "  ✓ Cover letter visible to employer"
+    fi
+  else
+    test_result 1 "Get application details (employer) failed"
+    echo "  Response: $EMP_APP_DETAILS" | head -c 200
+  fi
+else
+  test_result 1 "Cannot test employer application view (missing application ID or employer token)"
+fi
+
+echo ""
+
+# Test 50: Update application status (employer action)
+echo "Test 50: Update application status (employer)..."
+if [ -n "$EMPLOYER_TOKEN" ] && [ -n "$APPLICATION_ID" ] && [ "$APPLICATION_ID" != "" ]; then
+  UPDATE_APP_STATUS=$(curl -s -X PUT "http://localhost:3004/api/v1/matching/applications/${APPLICATION_ID}/status" \
+    -H "Authorization: Bearer ${EMPLOYER_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d '{"status": "under_review"}' 2>/dev/null || echo "")
+
+  if echo "$UPDATE_APP_STATUS" | grep -q "\"success\":true"; then
+    test_result 0 "Update application status successful"
+  else
+    test_result 1 "Update application status failed"
+    echo "  Response: $UPDATE_APP_STATUS" | head -c 200
+  fi
+else
+  test_result 1 "Cannot test update application status (missing application ID or employer token)"
+fi
+
+echo ""
+
+# Test 51: Get candidates with application data (employer view - enhanced)
+echo "Test 51: Get candidates with application data (employer)..."
+if [ -n "$TEST_JOB_ID" ] && [ -n "$EMPLOYER_TOKEN" ]; then
+  CANDIDATES_WITH_APPS=$(curl -s -X GET "http://localhost:3004/api/v1/matching/jobs/${TEST_JOB_ID}/candidates" \
+    -H "Authorization: Bearer ${EMPLOYER_TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$CANDIDATES_WITH_APPS" | grep -q "\"success\":true"; then
+    test_result 0 "Get candidates with applications successful"
+    # Check if application fields are present
+    if echo "$CANDIDATES_WITH_APPS" | grep -q "hasApplied"; then
+      echo "  ✓ Application integration working"
+    fi
+  else
+    test_result 1 "Get candidates with applications failed"
+  fi
+else
+  test_result 1 "Cannot test candidates with applications (missing job ID or employer token)"
+fi
+
+echo ""
+
+# Test 52: Get employer stats (dashboard data)
+echo "Test 52: Get employer stats..."
+if [ -n "$EMPLOYER_TOKEN" ]; then
+  # Get my jobs to calculate stats
+  MY_JOBS_RESPONSE=$(curl -s -X GET "http://localhost:3002/api/v1/jobs/my-jobs?limit=100" \
+    -H "Authorization: Bearer ${EMPLOYER_TOKEN}" 2>/dev/null || echo "")
+
+  if echo "$MY_JOBS_RESPONSE" | grep -q "\"success\":true"; then
+    test_result 0 "Get employer jobs for stats successful"
+    EMPLOYER_JOBS_COUNT=$(echo "$MY_JOBS_RESPONSE" | grep -o "jobId" | wc -l | xargs)
+    echo "  Employer has $EMPLOYER_JOBS_COUNT jobs"
+  else
+    test_result 1 "Get employer jobs failed"
+  fi
+else
+  test_result 1 "Cannot test employer stats (no employer token)"
+fi
+
+echo ""
+
 # Summary
 echo "============================"
 echo "📊 Test Summary"
@@ -887,16 +1078,27 @@ if [ $TESTS_FAILED -eq 0 ]; then
   echo "  • Job Service: http://localhost:3002"
   echo "  • Skills Service: http://localhost:3003"
   echo "  • Matching Service: http://localhost:3004"
+  echo "  • Frontend: http://localhost:5173"
   echo ""
   echo "Database:"
   echo "  • PostgreSQL: localhost:5432"
   echo "  • Redis: localhost:6379"
   echo "  • Adminer: http://localhost:8080"
   echo ""
+  echo "Features Tested:"
+  echo "  ✓ Authentication (login, refresh tokens, email verification)"
+  echo "  ✓ Candidate profiles (CRUD with education & experience)"
+  echo "  ✓ Company profiles (CRUD)"
+  echo "  ✓ Skills management (browse, add, update scores)"
+  echo "  ✓ Job posting (create, update, add skills)"
+  echo "  ✓ Job applications (apply, view, manage)"
+  echo "  ✓ Matching algorithm (calculate, browse with scores)"
+  echo "  ✓ Application management (employer review & status updates)"
+  echo ""
   echo "Next Steps:"
-  echo "  1. Create Frontend (React + TypeScript)"
-  echo "  2. Add E2E testing"
-  echo "  3. Prepare for Phase 2 (Interview System)"
+  echo "  1. Manual UI testing in browser"
+  echo "  2. Review performance optimizations (see PERFORMANCE_ANALYSIS.md)"
+  echo "  3. Prepare for Phase 2 (Interview System with AI)"
   exit 0
 else
   echo -e "${YELLOW}⚠ Some tests failed. Please review the failures above.${NC}"

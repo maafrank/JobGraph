@@ -580,7 +580,7 @@
 - [ ] Matching service integration tests
 - [ ] Test service-to-service interactions
 
-### 8.2 End-to-End Tests
+### 8.2 End-to-End Tests ✅ COMPLETE
 - [x] **Candidate full flow** ✅ (20/20 tests passing - 100%)
   - [x] Register with validation (weak passwords rejected)
   - [x] Login with credentials
@@ -590,12 +590,12 @@
   - [x] Browse all jobs with match scores
   - [x] Apply to jobs with cover letter
   - [x] View applications and withdraw
-  - [x] Test script: `/tmp/test-e2e-complete.sh`
-- [x] **Employer full flow** ✅ (13/13 tests passing - 100%)
-  - [x] Register as employer
+  - [x] **Test script:** `backend/tests/e2e/test-candidate-flow.sh`
+- [x] **Employer full flow** ✅ (14/14 tests passing - 100%)
+  - [x] Register as employer with auto-company creation
   - [x] Login with credentials
-  - [x] Create company profile
-  - [x] Get and update company profile
+  - [x] Get auto-created company profile
+  - [x] Update company profile
   - [x] Create job posting with details
   - [x] Add required skills (Python, Django) with weights and thresholds
   - [x] Add optional skills (React)
@@ -603,7 +603,17 @@
   - [x] Get job details
   - [x] Calculate matches for job
   - [x] View matched candidates
-  - [x] Test script: `/tmp/test-e2e-employer-flow.sh`
+  - [x] **Test script:** `backend/tests/e2e/test-employer-flow.sh`
+- [x] **Master test runner** ✅
+  - [x] **Script:** `backend/tests/e2e/run-all.sh`
+  - [x] Runs both candidate and employer flows
+  - [x] Generates summary report
+  - [x] Saves detailed logs to `/tmp/jobgraph-e2e-logs/`
+  - [x] **Total: 34/34 tests passing (100%)** 🎉
+- [x] **E2E test documentation** ✅
+  - [x] `backend/tests/e2e/README.md` - Complete usage guide
+  - [x] Prerequisites, running tests, troubleshooting
+  - [x] CI/CD integration examples
 - [x] Matching flow:
   - [x] Create job with skills → Calculate matches → Verify results (integrated in employer flow)
 

@@ -130,6 +130,101 @@ CREATE INDEX idx_company_users_user_id ON company_users(user_id);
 CREATE INDEX idx_company_users_company_id ON company_users(company_id);
 
 -- ============================================================================
+-- RESUME UPLOAD & PARSING (Phase 1)
+-- ============================================================================
+
+-- User documents (resumes, cover letters, certificates)
+-- Uses BYTEA storage for Phase 1, S3 migration planned for Phase 4
+CREATE TABLE user_documents (
+    document_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE NOT NULL,
+    document_type VARCHAR(50) NOT NULL CHECK (document_type IN ('resume', 'cover_letter', 'certificate')),
+    file_name VARCHAR(255) NOT NULL,
+    file_size INTEGER NOT NULL,
+    mime_type VARCHAR(100) NOT NULL,
+    file_data BYTEA NOT NULL, -- Binary file data (Phase 1)
+    is_current BOOLEAN DEFAULT TRUE,
+    version INTEGER DEFAULT 1,
+    upload_status VARCHAR(50) DEFAULT 'pending' CHECK (upload_status IN ('pending', 'processing', 'completed', 'failed')),
+    processing_error TEXT,
+    uploaded_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    processed_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    s3_key VARCHAR(500), -- For Phase 4 S3 migration
+    s3_bucket VARCHAR(100) -- For Phase 4 S3 migration
+);
+
+CREATE INDEX idx_user_documents_user_id ON user_documents(user_id);
+CREATE INDEX idx_user_documents_current ON user_documents(user_id, is_current) WHERE is_current = TRUE;
+CREATE INDEX idx_user_documents_type ON user_documents(user_id, document_type);
+CREATE UNIQUE INDEX idx_user_documents_current_unique ON user_documents(user_id, document_type) WHERE is_current = TRUE;
+
+-- Resume parsed data (extracted structured information)
+CREATE TABLE resume_parsed_data (
+    parsed_data_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    document_id UUID REFERENCES user_documents(document_id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE NOT NULL,
+    contact_info JSONB, -- {email, phone, linkedin, github, location}
+    summary TEXT,
+    skills JSONB, -- [{skill_name, proficiency, confidence}]
+    education JSONB, -- [{degree, field, institution, year, gpa}]
+    work_experience JSONB, -- [{title, company, dates, description}]
+    certifications JSONB, -- [{name, issuer, date}]
+    raw_text TEXT,
+    parser_used VARCHAR(50) NOT NULL,
+    confidence_score DECIMAL(3,2),
+    parsing_errors JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(document_id)
+);
+
+CREATE INDEX idx_resume_parsed_data_user_id ON resume_parsed_data(user_id);
+CREATE INDEX idx_resume_parsed_data_document_id ON resume_parsed_data(document_id);
+CREATE INDEX idx_resume_parsed_skills ON resume_parsed_data USING GIN (skills);
+CREATE INDEX idx_resume_parsed_education ON resume_parsed_data USING GIN (education);
+CREATE INDEX idx_resume_parsed_experience ON resume_parsed_data USING GIN (work_experience);
+
+-- Resume auto-fill suggestions
+CREATE TABLE resume_autofill_suggestions (
+    suggestion_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE NOT NULL,
+    document_id UUID REFERENCES user_documents(document_id) ON DELETE CASCADE NOT NULL,
+    suggestion_type VARCHAR(50) NOT NULL CHECK (suggestion_type IN ('basic_info', 'education', 'work_experience', 'skills', 'certifications')),
+    suggested_data JSONB NOT NULL,
+    target_table VARCHAR(50),
+    target_record_id UUID,
+    status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'rejected', 'applied')),
+    confidence DECIMAL(3,2),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    applied_at TIMESTAMP WITH TIME ZONE
+);
+
+CREATE INDEX idx_resume_suggestions_user_id ON resume_autofill_suggestions(user_id);
+CREATE INDEX idx_resume_suggestions_status ON resume_autofill_suggestions(user_id, status) WHERE status = 'pending';
+CREATE INDEX idx_resume_suggestions_document ON resume_autofill_suggestions(document_id);
+
+-- Resume shares (privacy-controlled employer access)
+CREATE TABLE resume_shares (
+    share_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    document_id UUID REFERENCES user_documents(document_id) ON DELETE CASCADE NOT NULL,
+    user_id UUID REFERENCES users(user_id) ON DELETE CASCADE NOT NULL,
+    shared_with_company_id UUID REFERENCES companies(company_id) ON DELETE CASCADE NOT NULL,
+    shared_for_job_id UUID REFERENCES jobs(job_id) ON DELETE CASCADE,
+    share_status VARCHAR(50) DEFAULT 'active' CHECK (share_status IN ('active', 'revoked', 'expired')),
+    access_count INTEGER DEFAULT 0,
+    last_accessed_at TIMESTAMP WITH TIME ZONE,
+    expires_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    revoked_at TIMESTAMP WITH TIME ZONE,
+    UNIQUE(document_id, shared_with_company_id, shared_for_job_id)
+);
+
+CREATE INDEX idx_resume_shares_user ON resume_shares(user_id);
+CREATE INDEX idx_resume_shares_company ON resume_shares(shared_with_company_id);
+CREATE INDEX idx_resume_shares_active ON resume_shares(user_id, share_status) WHERE share_status = 'active';
+
+-- ============================================================================
 -- SKILLS
 -- ============================================================================
 

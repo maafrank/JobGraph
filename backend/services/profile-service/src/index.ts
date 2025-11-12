@@ -2,13 +2,19 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import dotenv from 'dotenv';
+import path from 'path';
 import profileRoutes from './routes/profileRoutes';
 import companyRoutes from './routes/companyRoutes';
+import resumeRoutes from './routes/resumeRoutes';
 import { testDatabaseConnection, testRedisConnection } from '@jobgraph/common';
 import { errorResponse } from '@jobgraph/common';
 
-// Load environment variables
-dotenv.config({ path: '../../.env' });
+// Load environment variables - search upward from current directory
+// This works regardless of where the service is started from
+const envPath = path.resolve(__dirname, '../../../.env');
+console.log('[Profile Service] Loading .env from:', envPath);
+dotenv.config({ path: envPath });
+console.log('[Profile Service] ANTHROPIC_API_KEY loaded:', !!process.env.ANTHROPIC_API_KEY);
 
 const app = express();
 const PORT = process.env.PROFILE_SERVICE_PORT || 3001;
@@ -44,6 +50,7 @@ app.get('/health', async (req: Request, res: Response) => {
 // Routes (order matters! Public routes first, then auth-required routes)
 app.use('/api/v1/profiles', companyRoutes);
 app.use('/api/v1/profiles', profileRoutes);
+app.use('/api/v1/profiles/candidate/resume', resumeRoutes);
 
 // 404 handler
 app.use((req: Request, res: Response) => {

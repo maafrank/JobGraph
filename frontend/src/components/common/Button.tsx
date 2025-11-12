@@ -11,11 +11,14 @@ export const Button = ({
   variant = 'primary',
   size = 'md',
   isLoading = false,
+  loading, // Destructure and ignore the 'loading' prop if passed
   disabled,
   children,
   className = '',
   ...props
-}: ButtonProps) => {
+}: ButtonProps & { loading?: boolean }) => {
+  // Use isLoading prop, ignore 'loading' if it was passed by mistake
+  const showLoading = isLoading || loading;
   const baseStyles = 'font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center justify-center';
 
   const variantStyles = {
@@ -34,10 +37,10 @@ export const Button = ({
   return (
     <button
       className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
-      disabled={disabled || isLoading}
+      disabled={disabled || showLoading}
       {...props}
     >
-      {isLoading ? (
+      {showLoading ? (
         <>
           <svg
             className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"

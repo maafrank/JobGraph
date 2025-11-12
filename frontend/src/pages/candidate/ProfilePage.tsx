@@ -3,6 +3,7 @@ import { Layout } from '../../components/layout';
 import { Card, Button, Input, Textarea, Select, LoadingSpinner, Modal, useToast } from '../../components/common';
 import { profileService } from '../../services/profileService';
 import type { CandidateProfile, Education, WorkExperience } from '../../types';
+import ResumeSection from '../../components/profile/ResumeSection';
 
 export const ProfilePage = () => {
   const toast = useToast();
@@ -272,6 +273,9 @@ export const ProfilePage = () => {
             <p className="mt-2 text-gray-600">Manage your professional information</p>
           </div>
         </div>
+
+        {/* Resume Upload Section */}
+        <ResumeSection />
 
         {/* Basic Information Section */}
         <Card title="Basic Information">

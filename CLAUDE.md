@@ -101,6 +101,32 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
   - `DELETE /api/v1/profiles/candidate/skills/:skillId` - Remove skill
   - Skill scores stored in `user_skill_scores` with NULL `interview_id` for manual entries
   - Auto-expiry set to 1 year from entry date
+- **Resume Upload & Management** (Phase 1):
+  - `POST /api/v1/profiles/candidate/resume/upload` - Upload resume (PDF/DOCX/TXT, max 10MB)
+  - `GET /api/v1/profiles/candidate/resume` - Get current resume metadata
+  - `GET /api/v1/profiles/candidate/resume/download` - Download resume file
+  - `DELETE /api/v1/profiles/candidate/resume/:documentId` - Delete resume
+  - Files stored as BYTEA in PostgreSQL `user_documents` table (Phase 1)
+  - S3 migration planned for Phase 4 (production scale)
+  - Uses multer middleware for multipart/form-data handling
+  - Triggers automatic parsing after upload (pdf-parse for PDF, mammoth for DOCX)
+- **Resume Parsing & Auto-fill** (Phase 1 - COMPLETE):
+  - **AI-powered parsing using Claude Haiku 4.5** (Anthropic API)
+  - Automatic text extraction and structured data parsing from uploaded resumes
+  - Stores parsed data in `resume_parsed_data` table (JSONB)
+  - Extracts: contact info, summary, skills, education, work experience, certifications
+  - **Intelligent summary generation**: If resume lacks summary section, Claude generates professional summary from work history
+  - **Automatic profile auto-fill**: Immediately populates profile fields upon successful parsing
+  - **Empty string handling**: Uses `NULLIF(field, '')` in SQL to properly update fields that are empty strings
+  - **Database column mapping**: `years_experience` (not `years_of_experience`)
+  - **Date normalization**: Converts YYYY-MM and YYYY formats to YYYY-MM-DD for PostgreSQL compatibility
+  - **Frontend auto-refresh**: Uses sessionStorage flag to trigger one-time page reload after parsing completes
+  - Suggestion API endpoints (optional granular control):
+    - `GET /api/v1/profiles/candidate/resume/suggestions` - Get auto-fill suggestions
+    - `POST /api/v1/profiles/candidate/resume/suggestions/:suggestionId/apply` - Accept suggestion
+    - `DELETE /api/v1/profiles/candidate/resume/suggestions/:suggestionId` - Reject suggestion
+  - Suggestions stored in `resume_autofill_suggestions` table
+  - Privacy-controlled sharing with employers via `resume_shares` table
 
 **Skills Service** (Port 3003):
 - Public API (no authentication required for browsing skills)

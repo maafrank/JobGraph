@@ -57,6 +57,13 @@ export async function applyToJob(req: Request, res: Response): Promise<void> {
       return;
     }
 
+    // Get company_id for this job (needed for resume sharing)
+    const companyResult = await query(
+      'SELECT company_id FROM jobs WHERE job_id = $1',
+      [jobId]
+    );
+    const companyId = companyResult.rows[0].company_id;
+
     // Create application
     const result = await query(
       `INSERT INTO job_applications (job_id, user_id, cover_letter, resume_url, status)
@@ -66,6 +73,39 @@ export async function applyToJob(req: Request, res: Response): Promise<void> {
     );
 
     const application = result.rows[0];
+
+    // Auto-share resume with employer if candidate has uploaded one
+    try {
+      const resumeCheck = await query(
+        `SELECT document_id FROM user_documents
+         WHERE user_id = $1 AND document_type = 'resume' AND is_current = TRUE AND upload_status = 'completed'`,
+        [userId]
+      );
+
+      if (resumeCheck.rows.length > 0) {
+        const documentId = resumeCheck.rows[0].document_id;
+
+        // Check if share already exists
+        const existingShare = await query(
+          `SELECT share_id FROM resume_shares
+           WHERE document_id = $1 AND shared_with_company_id = $2 AND shared_for_job_id = $3`,
+          [documentId, companyId, jobId]
+        );
+
+        if (existingShare.rows.length === 0) {
+          // Create resume share - expires in 90 days
+          await query(
+            `INSERT INTO resume_shares
+             (document_id, user_id, shared_with_company_id, shared_for_job_id, share_status, expires_at)
+             VALUES ($1, $2, $3, $4, 'active', NOW() + INTERVAL '90 days')`,
+            [documentId, userId, companyId, jobId]
+          );
+        }
+      }
+    } catch (shareError) {
+      // Log but don't fail the application if resume sharing fails
+      console.error('Resume sharing error:', shareError);
+    }
 
     res.status(201).json(
       successResponse({

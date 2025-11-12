@@ -113,6 +113,39 @@ export interface RankedCandidate {
   applicationStatus?: string;
   applicationReviewedAt?: string;
   source: 'matched' | 'applied' | 'both';
+  // Resume data (if candidate has uploaded and shared)
+  hasResume: boolean;
+  resumeShared: boolean;
+  resumeFileName?: string;
+  resumeUploadedAt?: string;
+}
+
+export interface ResumeMetadata {
+  documentId: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  uploadedAt: string;
+  accessCount: number;
+  lastAccessedAt: string | null;
+  expiresAt: string | null;
+  parsedData: {
+    summary: string | null;
+    contactInfo: any;
+    skills: any[];
+    education: any[];
+    workExperience: any[];
+  };
+}
+
+export interface ParsedResumeData {
+  contactInfo: any;
+  summary: string | null;
+  skills: any[];
+  education: any[];
+  workExperience: any[];
+  certifications: any[];
+  confidenceScore: number | null;
 }
 
 export interface JobCandidatesResponse {
@@ -199,5 +232,39 @@ export const matchingService = {
     );
 
     return contactedCounts.reduce((sum, count) => sum + count, 0);
+  },
+
+  // Get candidate resume metadata (employer only)
+  getCandidateResumeMetadata: async (userId: string): Promise<ResumeMetadata> => {
+    const response = await matchingApi.get<ApiResponse<ResumeMetadata>>(
+      `/matching/candidates/${userId}/resume/metadata`
+    );
+    return response.data.data!;
+  },
+
+  // Download candidate resume (employer only)
+  downloadCandidateResume: async (userId: string, fileName: string): Promise<void> => {
+    const response = await matchingApi.get(
+      `/matching/candidates/${userId}/resume/download`,
+      { responseType: 'blob' }
+    );
+
+    // Create download link
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', fileName);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  },
+
+  // Get candidate parsed resume data (employer only)
+  getCandidateParsedResume: async (userId: string): Promise<ParsedResumeData> => {
+    const response = await matchingApi.get<ApiResponse<ParsedResumeData>>(
+      `/matching/candidates/${userId}/resume/parsed`
+    );
+    return response.data.data!;
   },
 };

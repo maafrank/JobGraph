@@ -8,6 +8,9 @@ import {
   contactCandidate,
   getApplicationDetails,
   updateApplicationStatus,
+  getCandidateResumeMetadata,
+  downloadCandidateResume,
+  getCandidateParsedResume,
 } from '../controllers/matchingController';
 import { authenticate, requireRole } from '../middleware/authMiddleware';
 
@@ -71,5 +74,26 @@ router.get('/applications/:applicationId', requireRole('employer'), getApplicati
  * @access  Private (Employer only)
  */
 router.put('/applications/:applicationId/status', requireRole('employer'), updateApplicationStatus);
+
+/**
+ * @route   GET /api/v1/matching/candidates/:userId/resume/metadata
+ * @desc    Get candidate resume metadata (employer only - requires resume share)
+ * @access  Private (Employer only)
+ */
+router.get('/candidates/:userId/resume/metadata', requireRole('employer'), getCandidateResumeMetadata);
+
+/**
+ * @route   GET /api/v1/matching/candidates/:userId/resume/download
+ * @desc    Download candidate resume file (employer only - requires resume share)
+ * @access  Private (Employer only)
+ */
+router.get('/candidates/:userId/resume/download', requireRole('employer'), downloadCandidateResume);
+
+/**
+ * @route   GET /api/v1/matching/candidates/:userId/resume/parsed
+ * @desc    Get candidate parsed resume data (employer only - requires resume share)
+ * @access  Private (Employer only)
+ */
+router.get('/candidates/:userId/resume/parsed', requireRole('employer'), getCandidateParsedResume);
 
 export default router;

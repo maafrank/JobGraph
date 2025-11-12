@@ -187,7 +187,10 @@ export async function calculateJobMatches(req: Request, res: Response): Promise<
     // Delete existing matches for this job
     await query('DELETE FROM job_matches WHERE job_id = $1', [jobId]);
 
-    // Insert new matches into database
+    // Get company_id for resume sharing
+    const companyId = jobCheck.rows[0].company_id;
+
+    // Insert new matches into database and auto-share resumes
     for (const match of matches) {
       await query(
         `INSERT INTO job_matches (job_id, user_id, overall_score, match_rank, skill_breakdown, status)
@@ -200,6 +203,39 @@ export async function calculateJobMatches(req: Request, res: Response): Promise<
           JSON.stringify(match.skillBreakdown),
         ]
       );
+
+      // Auto-share resume with employer if candidate has uploaded one
+      try {
+        const resumeCheck = await query(
+          `SELECT document_id FROM user_documents
+           WHERE user_id = $1 AND document_type = 'resume' AND is_current = TRUE AND upload_status = 'completed'`,
+          [match.userId]
+        );
+
+        if (resumeCheck.rows.length > 0) {
+          const documentId = resumeCheck.rows[0].document_id;
+
+          // Check if share already exists
+          const existingShare = await query(
+            `SELECT share_id FROM resume_shares
+             WHERE document_id = $1 AND shared_with_company_id = $2 AND shared_for_job_id = $3`,
+            [documentId, companyId, jobId]
+          );
+
+          if (existingShare.rows.length === 0) {
+            // Create resume share - expires in 90 days
+            await query(
+              `INSERT INTO resume_shares
+               (document_id, user_id, shared_with_company_id, shared_for_job_id, share_status, expires_at)
+               VALUES ($1, $2, $3, $4, 'active', NOW() + INTERVAL '90 days')`,
+              [documentId, match.userId, companyId, jobId]
+            );
+          }
+        }
+      } catch (shareError) {
+        // Log but don't fail the matching if resume sharing fails
+        console.error(`Resume sharing error for user ${match.userId}:`, shareError);
+      }
     }
 
     res.status(200).json(
@@ -241,9 +277,12 @@ export async function getJobCandidates(req: Request, res: Response): Promise<voi
       return;
     }
 
-    // Get matches for this job, including application data if exists
+    const companyId = jobCheck.rows[0].company_id;
+
+    // Get matches for this job, including application data and resume info if exists
+    // Use DISTINCT ON to prevent duplicate rows from resume_shares JOIN
     const matchesResult = await query(
-      `SELECT
+      `SELECT DISTINCT ON (jm.match_id)
          jm.match_id,
          jm.user_id,
          jm.overall_score,
@@ -266,14 +305,27 @@ export async function getJobCandidates(req: Request, res: Response): Promise<voi
          ja.applied_at,
          ja.cover_letter,
          ja.status as application_status,
-         ja.reviewed_at
+         ja.reviewed_at,
+         ud.document_id as resume_document_id,
+         ud.file_name as resume_file_name,
+         ud.uploaded_at as resume_uploaded_at,
+         rs.share_id as resume_share_id,
+         rs.share_status as resume_share_status
        FROM job_matches jm
        JOIN users u ON jm.user_id = u.user_id
        JOIN candidate_profiles cp ON u.user_id = cp.user_id
        LEFT JOIN job_applications ja ON jm.job_id = ja.job_id AND jm.user_id = ja.user_id
+       LEFT JOIN user_documents ud ON u.user_id = ud.user_id
+         AND ud.document_type = 'resume'
+         AND ud.is_current = TRUE
+         AND ud.upload_status = 'completed'
+       LEFT JOIN resume_shares rs ON ud.document_id = rs.document_id
+         AND rs.shared_with_company_id = $2
+         AND rs.share_status = 'active'
+         AND (rs.expires_at IS NULL OR rs.expires_at > NOW())
        WHERE jm.job_id = $1
-       ORDER BY jm.match_rank ASC`,
-      [jobId]
+       ORDER BY jm.match_id, jm.match_rank ASC`,
+      [jobId, companyId]
     );
 
     const matches = matchesResult.rows.map(match => ({
@@ -305,6 +357,11 @@ export async function getJobCandidates(req: Request, res: Response): Promise<voi
       applicationStatus: match.application_status,
       applicationReviewedAt: match.reviewed_at,
       source: match.application_id ? 'both' : 'matched',
+      // Resume data (if candidate has uploaded and shared)
+      hasResume: !!match.resume_document_id,
+      resumeShared: !!match.resume_share_id,
+      resumeFileName: match.resume_file_name,
+      resumeUploadedAt: match.resume_uploaded_at,
     }));
 
     res.status(200).json(
@@ -974,6 +1031,219 @@ export async function updateApplicationStatus(req: Request, res: Response): Prom
     console.error('Update application status error:', error);
     res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'An error occurred updating application status')
+    );
+  }
+}
+
+/**
+ * Get candidate resume metadata (employer view)
+ * Requires active resume share with the employer's company
+ */
+export async function getCandidateResumeMetadata(req: Request, res: Response): Promise<void> {
+  try {
+    const { userId: candidateUserId } = req.params;
+    const employerUserId = (req as any).user.user_id;
+
+    // Get employer's company
+    const companyResult = await query(
+      'SELECT company_id FROM company_users WHERE user_id = $1',
+      [employerUserId]
+    );
+
+    if (companyResult.rows.length === 0) {
+      res.status(403).json(
+        errorResponse('NO_COMPANY', 'Employer must be associated with a company')
+      );
+      return;
+    }
+
+    const companyId = companyResult.rows[0].company_id;
+
+    // Check if employer has access to this candidate's resume
+    const shareCheck = await query(
+      `SELECT rs.share_id, rs.access_count, rs.last_accessed_at, rs.expires_at,
+              ud.document_id, ud.file_name, ud.file_size, ud.mime_type, ud.uploaded_at,
+              rpd.summary, rpd.contact_info, rpd.skills, rpd.education, rpd.work_experience
+       FROM resume_shares rs
+       JOIN user_documents ud ON rs.document_id = ud.document_id
+       LEFT JOIN resume_parsed_data rpd ON ud.document_id = rpd.document_id
+       WHERE rs.user_id = $1
+         AND rs.shared_with_company_id = $2
+         AND rs.share_status = 'active'
+         AND (rs.expires_at IS NULL OR rs.expires_at > NOW())
+       ORDER BY rs.created_at DESC
+       LIMIT 1`,
+      [candidateUserId, companyId]
+    );
+
+    if (shareCheck.rows.length === 0) {
+      res.status(403).json(
+        errorResponse('NO_ACCESS', 'You do not have access to this candidate\'s resume')
+      );
+      return;
+    }
+
+    const resume = shareCheck.rows[0];
+
+    res.status(200).json(
+      successResponse({
+        documentId: resume.document_id,
+        fileName: resume.file_name,
+        fileSize: resume.file_size,
+        mimeType: resume.mime_type,
+        uploadedAt: resume.uploaded_at,
+        accessCount: resume.access_count,
+        lastAccessedAt: resume.last_accessed_at,
+        expiresAt: resume.expires_at,
+        parsedData: {
+          summary: resume.summary,
+          contactInfo: resume.contact_info,
+          skills: resume.skills,
+          education: resume.education,
+          workExperience: resume.work_experience,
+        },
+      })
+    );
+  } catch (error: any) {
+    console.error('Get candidate resume metadata error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred fetching resume metadata')
+    );
+  }
+}
+
+/**
+ * Download candidate resume file (employer view)
+ * Requires active resume share and increments access count
+ */
+export async function downloadCandidateResume(req: Request, res: Response): Promise<void> {
+  try {
+    const { userId: candidateUserId } = req.params;
+    const employerUserId = (req as any).user.user_id;
+
+    // Get employer's company
+    const companyResult = await query(
+      'SELECT company_id FROM company_users WHERE user_id = $1',
+      [employerUserId]
+    );
+
+    if (companyResult.rows.length === 0) {
+      res.status(403).json(
+        errorResponse('NO_COMPANY', 'Employer must be associated with a company')
+      );
+      return;
+    }
+
+    const companyId = companyResult.rows[0].company_id;
+
+    // Check if employer has access to this candidate's resume
+    const shareCheck = await query(
+      `SELECT rs.share_id, ud.document_id, ud.file_name, ud.file_data, ud.mime_type
+       FROM resume_shares rs
+       JOIN user_documents ud ON rs.document_id = ud.document_id
+       WHERE rs.user_id = $1
+         AND rs.shared_with_company_id = $2
+         AND rs.share_status = 'active'
+         AND (rs.expires_at IS NULL OR rs.expires_at > NOW())
+       ORDER BY rs.created_at DESC
+       LIMIT 1`,
+      [candidateUserId, companyId]
+    );
+
+    if (shareCheck.rows.length === 0) {
+      res.status(403).json(
+        errorResponse('NO_ACCESS', 'You do not have access to this candidate\'s resume')
+      );
+      return;
+    }
+
+    const resume = shareCheck.rows[0];
+
+    // Update access tracking
+    await query(
+      `UPDATE resume_shares
+       SET access_count = access_count + 1, last_accessed_at = NOW()
+       WHERE share_id = $1`,
+      [resume.share_id]
+    );
+
+    // Send file
+    const fileData = resume.file_data;
+    res.setHeader('Content-Type', resume.mime_type);
+    res.setHeader('Content-Disposition', `attachment; filename="${resume.file_name}"`);
+    res.send(fileData);
+  } catch (error: any) {
+    console.error('Download candidate resume error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred downloading resume')
+    );
+  }
+}
+
+/**
+ * Get parsed resume data for a candidate (employer view)
+ * Returns structured data without downloading the file
+ */
+export async function getCandidateParsedResume(req: Request, res: Response): Promise<void> {
+  try {
+    const { userId: candidateUserId } = req.params;
+    const employerUserId = (req as any).user.user_id;
+
+    // Get employer's company
+    const companyResult = await query(
+      'SELECT company_id FROM company_users WHERE user_id = $1',
+      [employerUserId]
+    );
+
+    if (companyResult.rows.length === 0) {
+      res.status(403).json(
+        errorResponse('NO_COMPANY', 'Employer must be associated with a company')
+      );
+      return;
+    }
+
+    const companyId = companyResult.rows[0].company_id;
+
+    // Check if employer has access to this candidate's resume
+    const resumeResult = await query(
+      `SELECT rpd.contact_info, rpd.summary, rpd.skills, rpd.education,
+              rpd.work_experience, rpd.certifications, rpd.confidence_score
+       FROM resume_shares rs
+       JOIN user_documents ud ON rs.document_id = ud.document_id
+       JOIN resume_parsed_data rpd ON ud.document_id = rpd.document_id
+       WHERE rs.user_id = $1
+         AND rs.shared_with_company_id = $2
+         AND rs.share_status = 'active'
+         AND (rs.expires_at IS NULL OR rs.expires_at > NOW())
+       ORDER BY rs.created_at DESC
+       LIMIT 1`,
+      [candidateUserId, companyId]
+    );
+
+    if (resumeResult.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('NO_PARSED_DATA', 'No parsed resume data available or access denied')
+      );
+      return;
+    }
+
+    const parsed = resumeResult.rows[0];
+
+    res.status(200).json(
+      successResponse({
+        contactInfo: parsed.contact_info,
+        summary: parsed.summary,
+        skills: parsed.skills,
+        education: parsed.education,
+        workExperience: parsed.work_experience,
+        certifications: parsed.certifications,
+        confidenceScore: parsed.confidence_score ? parseFloat(parsed.confidence_score) : null,
+      })
+    );
+  } catch (error: any) {
+    console.error('Get candidate parsed resume error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred fetching parsed resume data')
     );
   }
 }

@@ -41,23 +41,13 @@ export async function uploadResume(req: Request, res: Response) {
       ));
     }
 
-    // Mark any existing current resumes as not current
+    // Delete any existing resumes (Phase 1: no versioning, replace on upload)
+    // Note: CASCADE will also delete related parsed_data, suggestions, and shares
     await query(
-      `UPDATE user_documents
-       SET is_current = false
-       WHERE user_id = $1 AND document_type = 'resume' AND is_current = true`,
-      [userId]
-    );
-
-    // Get current version number
-    const versionResult = await query(
-      `SELECT COALESCE(MAX(version), 0) + 1 as next_version
-       FROM user_documents
+      `DELETE FROM user_documents
        WHERE user_id = $1 AND document_type = 'resume'`,
       [userId]
     );
-
-    const version = versionResult.rows[0].next_version;
 
     // Store file in database
     const result = await query(
@@ -74,7 +64,7 @@ export async function uploadResume(req: Request, res: Response) {
         file.mimetype,
         file.buffer, // Store binary data
         true, // is_current
-        version,
+        1, // Always version 1 (no versioning in Phase 1)
         'pending'
       ]
     );

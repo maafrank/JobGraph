@@ -34,6 +34,18 @@ const CandidateMatchesPage = () => {
     try {
       const data = await matchingService.getJobCandidates(jobId!);
       setJobTitle(data.jobTitle);
+
+      // Debug: Check for duplicate matchIds in API response
+      const matchIds = data.candidates.map(c => c.matchId);
+      const uniqueMatchIds = new Set(matchIds);
+      if (matchIds.length !== uniqueMatchIds.size) {
+        console.warn('⚠️ API returned duplicate candidates:', {
+          total: matchIds.length,
+          unique: uniqueMatchIds.size,
+          duplicates: matchIds.filter((id, index) => matchIds.indexOf(id) !== index)
+        });
+      }
+
       setCandidates(data.candidates);
     } catch (error: any) {
       console.error('Error fetching candidates:', error);
@@ -85,6 +97,20 @@ const CandidateMatchesPage = () => {
     }
   };
 
+  const handleDownloadResume = async (userId: string, fileName: string) => {
+    try {
+      await matchingService.downloadCandidateResume(userId, fileName);
+      toast.success('Resume downloaded successfully');
+    } catch (error: any) {
+      console.error('Error downloading resume:', error);
+      if (error.response?.status === 403) {
+        toast.error('You do not have access to this resume');
+      } else {
+        toast.error('Failed to download resume');
+      }
+    }
+  };
+
   const handleUpdateApplicationStatus = async (newStatus: string) => {
     if (!selectedApplicationId) return;
 
@@ -112,19 +138,24 @@ const CandidateMatchesPage = () => {
   };
 
   // Filter candidates based on selected tab
-  const filteredCandidates = candidates.filter((candidate) => {
-    switch (filterTab) {
-      case 'matched':
-        return !candidate.hasApplied; // Only matched, not applied
-      case 'applied':
-        return candidate.hasApplied; // Only applied
-      case 'both':
-        return candidate.hasApplied; // Applied (same as 'applied')
-      case 'all':
-      default:
-        return true; // All candidates
-    }
-  });
+  const filteredCandidates = candidates
+    .filter((candidate) => {
+      switch (filterTab) {
+        case 'matched':
+          return !candidate.hasApplied; // Only matched, not applied
+        case 'applied':
+          return candidate.hasApplied; // Only applied
+        case 'both':
+          return candidate.hasApplied; // Applied (same as 'applied')
+        case 'all':
+        default:
+          return true; // All candidates
+      }
+    })
+    // Deduplicate by matchId to prevent duplicate key warnings
+    .filter((candidate, index, self) =>
+      index === self.findIndex((c) => c.matchId === candidate.matchId)
+    );
 
   const getScoreColor = (score: number): string => {
     if (score >= 90) return 'text-green-600';
@@ -388,6 +419,24 @@ const CandidateMatchesPage = () => {
                     >
                       📄 View Application
                     </Button>
+                  )}
+
+                  {/* Download Resume Button (if shared) */}
+                  {candidate.resumeShared && candidate.resumeFileName && (
+                    <Button
+                      variant="secondary"
+                      onClick={() => handleDownloadResume(candidate.userId, candidate.resumeFileName!)}
+                      size="sm"
+                    >
+                      📎 Download Resume
+                    </Button>
+                  )}
+
+                  {/* Resume Not Available Message */}
+                  {candidate.hasResume && !candidate.resumeShared && (
+                    <div className="text-xs text-gray-500 italic px-2 py-1 bg-gray-50 rounded">
+                      Resume not yet shared
+                    </div>
                   )}
 
                   {/* Contact Candidate Button */}

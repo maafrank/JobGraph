@@ -23,12 +23,17 @@
 
 ### 1.2 Testing
 - [x] Manual API testing with curl/test script
-- [ ] Jest integration tests for auth endpoints
-- [ ] Test user registration flow
-- [ ] Test login flow
-- [ ] Test protected routes
-- [ ] Test invalid credentials
-- [ ] Test weak password validation
+- [x] Jest integration tests for auth endpoints ✅ COMPLETE
+- [x] Test user registration flow (9 tests covering valid/invalid scenarios)
+- [x] Test login flow (4 tests covering credentials validation)
+- [x] Test protected routes (3 tests covering token validation)
+- [x] Test invalid credentials (included in login tests)
+- [x] Test weak password validation (included in registration tests)
+- [x] Test token refresh flow (5 tests covering all refresh scenarios)
+- [x] Test logout endpoint (3 tests covering revocation)
+- [x] Test email verification (4 tests covering token validation)
+- [x] **Total: 28 integration tests - all passing** ✅
+- [x] **Coverage: 59.52% of authController.ts, 57.69% of authMiddleware.ts**
 
 ---
 
@@ -818,25 +823,32 @@ When the platform reaches production scale (10,000+ users, significant file volu
 - [x] Implementation roadmap with P0/P1/P2 priorities
 - [x] Cost impact analysis and load testing scenarios
 
-### 2. Jest Integration Tests (Testing Gap)
+### 2. Jest Integration Tests (Testing Gap) - ✅ AUTH SERVICE COMPLETE
 - [x] Jest unit tests for utils (password hashing, email validation, password strength)
   - [x] Located at: `/Users/matthewfrank/Documents/Business/JobGraph/backend/tests/unit/utils.test.ts`
-- [ ] Jest integration tests for Auth Service endpoints
-  - [ ] Test user registration flow (valid/invalid inputs)
-  - [ ] Test login flow (correct/incorrect credentials)
-  - [ ] Test protected routes (with/without token)
-  - [ ] Test token refresh flow
-  - [ ] Test weak password validation
-  - [ ] Test email verification
-- [ ] Jest integration tests for Profile Service
+- [x] **Jest integration tests for Auth Service endpoints** ✅ COMPLETE
+  - [x] Test user registration flow (valid/invalid inputs) - 9 tests
+  - [x] Test login flow (correct/incorrect credentials) - 4 tests
+  - [x] Test protected routes (with/without token) - 3 tests
+  - [x] Test token refresh flow - 5 tests
+  - [x] Test weak password validation - included in registration tests
+  - [x] Test email verification - 4 tests
+  - [x] Test logout endpoint - 3 tests
+  - [x] **Total: 28 integration tests - all passing** ✅
+  - [x] **Files created:**
+    - `/backend/tests/integration/auth-service.test.ts` (main test suite)
+    - `/backend/tests/integration/helpers/testApp.ts` (Express app factory)
+    - `/backend/tests/integration/helpers/dbHelpers.ts` (database test utilities)
+  - [x] **Coverage: 59.52% of authController.ts, 57.69% of authMiddleware.ts**
+- [ ] Jest integration tests for Profile Service (Future enhancement)
   - [ ] Test profile CRUD with authorization
   - [ ] Test education CRUD operations
   - [ ] Test work experience CRUD operations
-- [ ] Jest integration tests for Job Service
+- [ ] Jest integration tests for Job Service (Future enhancement)
   - [ ] Test job creation with skills
   - [ ] Test job listing with filters
   - [ ] Test authorization (only owner can edit)
-- **Note**: We have comprehensive bash test scripts in /tmp/ but missing Jest-based integration tests for CI/CD
+- **Note**: Auth Service now has comprehensive Jest tests suitable for CI/CD. Bash test scripts in /tmp/ remain for full integration testing.
 
 ### 3. Enhanced Registration Flow (UX Improvement) - HIGH PRIORITY ⭐ ✅ COMPLETE
 - [x] **Employer Enhanced Registration**

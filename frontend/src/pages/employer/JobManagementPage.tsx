@@ -4,6 +4,7 @@ import { jobService } from '../../services/jobService';
 import { matchingService } from '../../services/matchingService';
 import type { Job, JobStatus } from '../../types';
 import { Button, Card, LoadingSpinner, useToast } from '../../components/common';
+import { Layout } from '../../components/layout';
 
 type StatusFilter = 'all' | JobStatus;
 
@@ -175,11 +176,8 @@ const JobManagementPage = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <Layout>
       <div className="mb-8">
-        <Button variant="ghost" onClick={() => navigate('/employer/dashboard')} className="mb-4">
-          ← Back to Dashboard
-        </Button>
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold">Job Management</h1>
           <Button onClick={() => navigate('/employer/jobs/new')}>
@@ -350,7 +348,7 @@ const JobManagementPage = () => {
           ))}
         </div>
       )}
-    </div>
+    </Layout>
   );
 };
 

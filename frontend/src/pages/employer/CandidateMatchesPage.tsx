@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { matchingService, type RankedCandidate } from '../../services/matchingService';
 import { Button, Card, LoadingSpinner, Modal, useToast } from '../../components/common';
+import { Layout } from '../../components/layout';
 
 const CandidateMatchesPage = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -223,21 +224,18 @@ const CandidateMatchesPage = () => {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
+      <Layout>
         <div className="flex justify-center py-12">
           <LoadingSpinner size="lg" />
         </div>
-      </div>
+      </Layout>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
+    <Layout>
       {/* Header */}
       <div className="mb-8">
-        <Button variant="ghost" onClick={() => navigate('/employer/jobs')} className="mb-4">
-          ← Back to Jobs
-        </Button>
         <h1 className="text-3xl font-bold mb-2">Candidates</h1>
         <p className="text-gray-600">
           Job: <span className="font-medium">{jobTitle}</span>
@@ -645,7 +643,7 @@ const CandidateMatchesPage = () => {
           </div>
         )}
       </Modal>
-    </div>
+    </Layout>
   );
 };
 

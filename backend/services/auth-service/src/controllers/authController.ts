@@ -469,3 +469,239 @@ export async function verifyEmail(req: Request, res: Response): Promise<void> {
     );
   }
 }
+
+/**
+ * Change user password
+ * PUT /api/v1/auth/change-password
+ */
+export async function changePassword(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+    const { currentPassword, newPassword } = req.body;
+
+    // Validate required fields
+    if (!currentPassword || !newPassword) {
+      res.status(400).json(
+        errorResponse('VALIDATION_ERROR', 'Current password and new password are required')
+      );
+      return;
+    }
+
+    // Validate new password strength
+    if (!isValidPassword(newPassword)) {
+      res.status(400).json(
+        errorResponse(
+          'WEAK_PASSWORD',
+          'Password must be at least 8 characters with uppercase, lowercase, number, and special character'
+        )
+      );
+      return;
+    }
+
+    // Get current password hash
+    const userResult = await query(
+      'SELECT password_hash FROM users WHERE user_id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('USER_NOT_FOUND', 'User not found')
+      );
+      return;
+    }
+
+    // Verify current password
+    const isPasswordValid = await comparePassword(
+      currentPassword,
+      userResult.rows[0].password_hash
+    );
+
+    if (!isPasswordValid) {
+      res.status(401).json(
+        errorResponse('INVALID_PASSWORD', 'Current password is incorrect')
+      );
+      return;
+    }
+
+    // Hash new password
+    const newPasswordHash = await hashPassword(newPassword);
+
+    // Update password
+    await query(
+      'UPDATE users SET password_hash = $1, updated_at = NOW() WHERE user_id = $2',
+      [newPasswordHash, userId]
+    );
+
+    // Revoke all refresh tokens for security (force re-login on all devices)
+    await query(
+      'UPDATE refresh_tokens SET revoked = TRUE, revoked_at = NOW() WHERE user_id = $1 AND revoked = FALSE',
+      [userId]
+    );
+
+    res.status(200).json(
+      successResponse({
+        message: 'Password changed successfully. Please log in again on all devices.',
+      })
+    );
+  } catch (error) {
+    console.error('Change password error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred while changing password')
+    );
+  }
+}
+
+/**
+ * Change user email
+ * PUT /api/v1/auth/change-email
+ */
+export async function changeEmail(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+    const { newEmail, password } = req.body;
+
+    // Validate required fields
+    if (!newEmail || !password) {
+      res.status(400).json(
+        errorResponse('VALIDATION_ERROR', 'New email and password are required')
+      );
+      return;
+    }
+
+    // Validate email format
+    if (!isValidEmail(newEmail)) {
+      res.status(400).json(
+        errorResponse('INVALID_EMAIL', 'Invalid email format')
+      );
+      return;
+    }
+
+    // Get current user data
+    const userResult = await query(
+      'SELECT email, password_hash FROM users WHERE user_id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('USER_NOT_FOUND', 'User not found')
+      );
+      return;
+    }
+
+    const currentUser = userResult.rows[0];
+
+    // Check if new email is same as current
+    if (newEmail.toLowerCase() === currentUser.email.toLowerCase()) {
+      res.status(400).json(
+        errorResponse('SAME_EMAIL', 'New email is the same as current email')
+      );
+      return;
+    }
+
+    // Verify password
+    const isPasswordValid = await comparePassword(password, currentUser.password_hash);
+
+    if (!isPasswordValid) {
+      res.status(401).json(
+        errorResponse('INVALID_PASSWORD', 'Password is incorrect')
+      );
+      return;
+    }
+
+    // Check if new email is already taken
+    const existingUser = await query(
+      'SELECT user_id FROM users WHERE email = $1',
+      [newEmail.toLowerCase()]
+    );
+
+    if (existingUser.rows.length > 0) {
+      res.status(409).json(
+        errorResponse('EMAIL_EXISTS', 'Email is already in use')
+      );
+      return;
+    }
+
+    // Update email and mark as unverified
+    await query(
+      `UPDATE users
+       SET email = $1,
+           email_verified = FALSE,
+           updated_at = NOW()
+       WHERE user_id = $2`,
+      [newEmail.toLowerCase(), userId]
+    );
+
+    res.status(200).json(
+      successResponse({
+        message: 'Email changed successfully',
+        newEmail: newEmail.toLowerCase(),
+      })
+    );
+  } catch (error) {
+    console.error('Change email error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred while changing email')
+    );
+  }
+}
+
+/**
+ * Delete user account
+ * DELETE /api/v1/auth/account
+ */
+export async function deleteAccount(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+    const { password } = req.body;
+
+    // Validate required fields
+    if (!password) {
+      res.status(400).json(
+        errorResponse('VALIDATION_ERROR', 'Password is required to delete account')
+      );
+      return;
+    }
+
+    // Get current user data
+    const userResult = await query(
+      'SELECT password_hash, role FROM users WHERE user_id = $1',
+      [userId]
+    );
+
+    if (userResult.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('USER_NOT_FOUND', 'User not found')
+      );
+      return;
+    }
+
+    const user = userResult.rows[0];
+
+    // Verify password
+    const isPasswordValid = await comparePassword(password, user.password_hash);
+
+    if (!isPasswordValid) {
+      res.status(401).json(
+        errorResponse('INVALID_PASSWORD', 'Password is incorrect')
+      );
+      return;
+    }
+
+    // Delete user (cascade delete will handle related records)
+    // The database schema should have ON DELETE CASCADE constraints
+    await query('DELETE FROM users WHERE user_id = $1', [userId]);
+
+    res.status(200).json(
+      successResponse({
+        message: 'Account deleted successfully',
+      })
+    );
+  } catch (error) {
+    console.error('Delete account error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred while deleting account')
+    );
+  }
+}

@@ -15,11 +15,13 @@ import { ProfilePage } from './pages/candidate/ProfilePage';
 import { SkillsPage } from './pages/candidate/SkillsPage';
 import { JobMatchesPage } from './pages/candidate/JobMatchesPage';
 import { MyApplicationsPage } from './pages/candidate/MyApplicationsPage';
+import CandidateSettingsPage from './pages/candidate/SettingsPage';
 import { EmployerDashboard } from './pages/employer/EmployerDashboard';
 import { CompanyProfilePage } from './pages/employer/CompanyProfilePage';
 import { JobPostingPage } from './pages/employer/JobPostingPage';
 import JobManagementPage from './pages/employer/JobManagementPage';
 import CandidateMatchesPage from './pages/employer/CandidateMatchesPage';
+import EmployerSettingsPage from './pages/employer/SettingsPage';
 
 // Create a client for React Query
 const queryClient = new QueryClient({
@@ -94,6 +96,14 @@ function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path="/candidate/settings"
+            element={
+              <ProtectedRoute requiredRole="candidate">
+                <CandidateSettingsPage />
+              </ProtectedRoute>
+            }
+          />
 
           {/* Employer routes */}
           <Route
@@ -141,6 +151,14 @@ function App() {
             element={
               <ProtectedRoute requiredRole="employer">
                 <CandidateMatchesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/employer/settings"
+            element={
+              <ProtectedRoute requiredRole="employer">
+                <EmployerSettingsPage />
               </ProtectedRoute>
             }
           />

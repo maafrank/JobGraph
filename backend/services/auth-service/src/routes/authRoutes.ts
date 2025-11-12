@@ -6,6 +6,9 @@ import {
   refreshAccessToken,
   logout,
   verifyEmail,
+  changePassword,
+  changeEmail,
+  deleteAccount,
 } from '../controllers/authController';
 import { authenticate } from '../middleware/authMiddleware';
 
@@ -52,5 +55,26 @@ router.post('/verify-email', verifyEmail);
  * @access  Private
  */
 router.get('/me', authenticate, getCurrentUser);
+
+/**
+ * @route   PUT /api/v1/auth/change-password
+ * @desc    Change user password
+ * @access  Private
+ */
+router.put('/change-password', authenticate, changePassword);
+
+/**
+ * @route   PUT /api/v1/auth/change-email
+ * @desc    Change user email
+ * @access  Private
+ */
+router.put('/change-email', authenticate, changeEmail);
+
+/**
+ * @route   DELETE /api/v1/auth/account
+ * @desc    Delete user account
+ * @access  Private
+ */
+router.delete('/account', authenticate, deleteAccount);
 
 export default router;

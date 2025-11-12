@@ -760,8 +760,9 @@ When the platform reaches production scale (10,000+ users, significant file volu
 - 20 E2E tests for candidate flow in `/tmp/test-e2e-complete.sh` (100% passing ✅)
 - 13 E2E tests for employer flow in `/tmp/test-e2e-employer-flow.sh` (100% passing ✅)
 - 15 E2E tests for resume sharing flow in `/tmp/test-resume-sharing-flow.sh` (100% passing ✅)
+- 10 Settings API tests in `/tmp/test-settings-api.sh` (100% passing ✅)
 - Individual test scripts: `test-auth-api.sh`, `test-profile-api.sh`, `test-job-api.sh`, `test-skills-api.sh`, `test-company-api.sh`
-- **Total: 100 automated tests across backend and E2E flows** 🎉
+- **Total: 110 automated tests across backend and E2E flows** 🎉
 
 **Core Backend MVP Complete!** All 5 backend microservices are implemented and operational.
 **Frontend Foundation Complete!** Authentication, layout, and common components are working.
@@ -784,6 +785,7 @@ When the platform reaches production scale (10,000+ users, significant file volu
 - ✅ **Skills Management Page** - Complete CRUD for manual skill scores with proficiency sliders
 - ✅ **Job Matches Page** - Browse all jobs with real-time match scores, required vs optional skills, apply to jobs
 - ✅ **My Applications Page** - Track all applications with status filtering, withdraw functionality
+- ✅ **Settings Page** - Account management, privacy settings, password/email changes, account deletion
 
 **Employer Pages (All Complete):**
 - ✅ **Employer Dashboard** - Active jobs count, total matches, contacted candidates, getting started guide
@@ -791,6 +793,7 @@ When the platform reaches production scale (10,000+ users, significant file volu
 - ✅ **Job Posting Page** - Create/edit jobs with skills, weights, thresholds, responsibilities
 - ✅ **Job Management Page** - List all jobs, status filters, publish drafts, close/reopen, auto-calculate matches, delete jobs
 - ✅ **Candidate Matches Page** - View ranked candidates, application integration, status management, contact candidates, **download resumes with privacy controls**
+- ✅ **Settings Page** - Account management, company settings link, password/email changes, account deletion
 
 **Next Steps:**
 1. **Integration & Testing (Week 11)** - ← CURRENT PRIORITY
@@ -804,37 +807,124 @@ When the platform reaches production scale (10,000+ users, significant file volu
 
 ---
 
-## Phase 1 Enhancements & Polish (Optional - Can be done now or deferred)
+## PRE-PHASE 2 PRIORITIES 🎯
 
-### Profile Enhancements
+**Goal**: Polish Phase 1 features before moving to Phase 2 Interview System
+
+### 1. Performance Documentation ✅ COMPLETE
+- [x] PERFORMANCE_ANALYSIS.md created with comprehensive analysis
+- [x] Identified bottlenecks: N+1 queries, missing indexes, frontend re-rendering
+- [x] Database indexes added (Migration 008 applied)
+- [x] Implementation roadmap with P0/P1/P2 priorities
+- [x] Cost impact analysis and load testing scenarios
+
+### 2. Jest Integration Tests (Testing Gap)
+- [x] Jest unit tests for utils (password hashing, email validation, password strength)
+  - [x] Located at: `/Users/matthewfrank/Documents/Business/JobGraph/backend/tests/unit/utils.test.ts`
+- [ ] Jest integration tests for Auth Service endpoints
+  - [ ] Test user registration flow (valid/invalid inputs)
+  - [ ] Test login flow (correct/incorrect credentials)
+  - [ ] Test protected routes (with/without token)
+  - [ ] Test token refresh flow
+  - [ ] Test weak password validation
+  - [ ] Test email verification
+- [ ] Jest integration tests for Profile Service
+  - [ ] Test profile CRUD with authorization
+  - [ ] Test education CRUD operations
+  - [ ] Test work experience CRUD operations
+- [ ] Jest integration tests for Job Service
+  - [ ] Test job creation with skills
+  - [ ] Test job listing with filters
+  - [ ] Test authorization (only owner can edit)
+- **Note**: We have comprehensive bash test scripts in /tmp/ but missing Jest-based integration tests for CI/CD
+
+### 3. Enhanced Registration Flow (UX Improvement) - HIGH PRIORITY ⭐
+- [ ] **Employer Enhanced Registration**
+  - [ ] Collect company name during employer registration
+  - [ ] Auto-create company_profiles record on employer registration
+  - [ ] Link user to company via company_users table
+  - [ ] Skip "Create Company" step in employer onboarding
+  - [ ] Backend: Modify `/api/v1/auth/register` to handle employer-specific data
+  - [ ] Frontend: Add company name field to registration form (conditional on employer role)
+  - [ ] Update database schema if needed (verify company_name can be collected during registration)
+
+- [ ] **Candidate Enhanced Registration**
+  - [ ] Collect additional profile fields during candidate registration
+    - [ ] Phone number (add to users or candidate_profiles table)
+    - [ ] LinkedIn URL
+    - [ ] Portfolio URL
+    - [ ] GitHub URL
+    - [ ] Other social/professional links (JSONB field)
+  - [ ] Backend: Modify `/api/v1/auth/register` to accept additional candidate fields
+  - [ ] Frontend: Add fields to candidate registration form
+  - [ ] Update database schema: Add social_links JSONB to candidate_profiles
+  - [ ] Auto-populate candidate_profiles with collected data on registration
+  - [ ] Skip "Complete Profile" step if basic info provided during registration
+
+### 4. Settings Pages (User Management) - HIGH PRIORITY ⭐ ✅ COMPLETE
+- [x] **Candidate Settings Page** (`/candidate/settings`)
+  - [x] Account Settings Tab
+    - [x] Display current email (read-only)
+    - [x] Change password form (current password, new password, confirm)
+    - [x] Email change functionality (require verification)
+  - [x] Privacy Settings Tab
+    - [x] Profile visibility dropdown (public, private, anonymous)
+    - [x] Resume sharing preferences display
+  - [x] Notification Preferences Tab (Placeholder for Phase 2)
+    - [x] Display "Coming soon in Phase 2" message
+  - [x] Danger Zone Tab
+    - [x] Delete account button (with confirmation modal)
+    - [x] Warning message about data deletion
+    - [x] Require password confirmation
+
+- [x] **Employer Settings Page** (`/employer/settings`)
+  - [x] Account Settings Tab
+    - [x] Display current email (read-only)
+    - [x] Change password form
+    - [x] Email change functionality
+  - [x] Company Settings Tab
+    - [x] Link to company profile page
+    - [x] Company user management (Phase 2+ - show placeholder)
+  - [x] Notification Preferences Tab (Placeholder for Phase 2)
+    - [x] Display "Coming soon in Phase 2" message
+  - [x] Danger Zone Tab
+    - [x] Delete account button
+    - [x] Warning about company data deletion
+    - [x] Require password confirmation
+
+- [x] **Backend API Endpoints**
+  - [x] `PUT /api/v1/auth/change-password` - Change password (all users)
+  - [x] `PUT /api/v1/auth/change-email` - Change email with verification (all users)
+  - [x] `DELETE /api/v1/auth/account` - Delete account (cascade delete related data)
+  - [x] Privacy settings already available via existing profile update endpoint
+  - [x] Add proper authorization checks (user can only modify own settings)
+  - [x] Add password confirmation requirement for sensitive operations
+
+- [x] **Testing**
+  - [x] Backend API tests: 10/10 tests passing (test-settings-api.sh)
+  - [x] Change password with wrong/correct password
+  - [x] Change email with wrong/correct password
+  - [x] Delete account with wrong/correct password
+  - [x] Login with new password after change
+  - [x] Account deletion verification
+
+- [x] **Navigation & UX**
+  - [x] Settings link added to navbar for both user roles
+  - [x] Routes configured for /candidate/settings and /employer/settings
+  - [x] Layout wrapper added for proper navigation
+  - [x] Tab-based navigation within settings pages
+  - [x] Toast notifications for all actions
+  - [x] Loading states on buttons
+  - [x] Auto-logout after password change (tokens revoked)
+  - [x] Auto-redirect after account deletion
+
+### 5. Profile Enhancements (Optional - Lower Priority)
 - [ ] User photo upload for candidate profiles
   - [ ] Add profile_photo_url field to candidate_profiles table
   - [ ] S3 integration for photo storage (similar to resume upload pattern)
   - [ ] Frontend upload component with image preview
   - [ ] Image validation (file type, size limits)
   - [ ] Display photo in profile page, dashboard, and candidate cards
-
-### Settings Pages
-- [ ] Candidate Settings Page
-  - [ ] Account settings (email, password change)
-  - [ ] Notification preferences (placeholder for Phase 2)
-  - [ ] Privacy settings (profile visibility)
-  - [ ] Delete account functionality
-- [ ] Employer Settings Page
-  - [ ] Account settings (email, password change)
-  - [ ] Company user management (add/remove team members - Phase 2+)
-  - [ ] Notification preferences
-  - [ ] Delete account functionality
-
-### Enhanced Registration Flow
-- [ ] Employer-specific registration form
-  - [ ] Collect company name during registration
-  - [ ] Auto-create company_profiles record on employer registration
-  - [ ] Link user to company via company_users table
-  - [ ] Skip "Create Company" step in onboarding
-- [ ] Update database schema to support company_name in registration
-- [ ] Backend: Modify registration endpoint to handle employer-specific data
-- [ ] Frontend: Conditional registration form based on role selection
 
 ---
 
@@ -850,6 +940,7 @@ When the platform reaches production scale (10,000+ users, significant file volu
   - [x] Employer dashboard stats (Test 52)
   - **Total: 52 comprehensive integration tests**
 - [ ] Create test-frontend-e2e.sh (optional - manual testing sufficient for now)
+- [ ] Add Jest integration test suite for Auth Service (CI/CD readiness)
 
 ### Manual Testing Checklist
 - [ ] **Candidate Flow**:

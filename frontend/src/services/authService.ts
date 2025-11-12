@@ -39,4 +39,31 @@ export const authService = {
     );
     return response.data.data!;
   },
+
+  // Change password
+  changePassword: async (currentPassword: string, newPassword: string): Promise<{ message: string }> => {
+    const response = await authApi.put<ApiResponse<{ message: string }>>(
+      '/auth/change-password',
+      { currentPassword, newPassword }
+    );
+    return response.data.data!;
+  },
+
+  // Change email
+  changeEmail: async (newEmail: string, password: string): Promise<{ message: string; newEmail: string }> => {
+    const response = await authApi.put<ApiResponse<{ message: string; newEmail: string }>>(
+      '/auth/change-email',
+      { newEmail, password }
+    );
+    return response.data.data!;
+  },
+
+  // Delete account
+  deleteAccount: async (password: string): Promise<{ message: string }> => {
+    const response = await authApi.delete<ApiResponse<{ message: string }>>(
+      '/auth/account',
+      { data: { password } }
+    );
+    return response.data.data!;
+  },
 };

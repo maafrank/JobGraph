@@ -87,6 +87,12 @@ export const Navbar = () => {
                 <span className="text-sm text-gray-700">
                   Welcome, <span className="font-medium">{user?.firstName}</span>
                 </span>
+                <Link
+                  to={user?.role === 'candidate' ? '/candidate/settings' : '/employer/settings'}
+                  className="text-gray-700 hover:text-primary-600 px-3 py-2 rounded-md text-sm font-medium"
+                >
+                  Settings
+                </Link>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                   Sign out
                 </Button>

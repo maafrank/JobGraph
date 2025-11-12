@@ -1,5 +1,5 @@
 import { profileApi } from './api';
-import type { ApiResponse, CandidateProfile, Education, WorkExperience, UserSkillScore } from '../types';
+import type { ApiResponse, CandidateProfile, Education, WorkExperience, UserSkillScore, ProfessionalLink } from '../types';
 
 export const profileService = {
   // Get candidate profile
@@ -62,5 +62,20 @@ export const profileService = {
 
   deleteSkill: async (skillId: string): Promise<void> => {
     await profileApi.delete(`/profiles/candidate/skills/${skillId}`);
+  },
+
+  // Professional links endpoints
+  addLink: async (data: { linkType: string; url: string; label?: string; displayOrder?: number }): Promise<ProfessionalLink> => {
+    const response = await profileApi.post<ApiResponse<ProfessionalLink>>('/profiles/candidate/links', data);
+    return response.data.data!;
+  },
+
+  updateLink: async (linkId: string, data: Partial<ProfessionalLink>): Promise<ProfessionalLink> => {
+    const response = await profileApi.put<ApiResponse<ProfessionalLink>>(`/profiles/candidate/links/${linkId}`, data);
+    return response.data.data!;
+  },
+
+  deleteLink: async (linkId: string): Promise<void> => {
+    await profileApi.delete(`/profiles/candidate/links/${linkId}`);
   },
 };

@@ -4,6 +4,7 @@ import { Card, Button, Input, Textarea, Select, LoadingSpinner, Modal, useToast 
 import { profileService } from '../../services/profileService';
 import type { CandidateProfile, Education, WorkExperience } from '../../types';
 import ResumeSection from '../../components/profile/ResumeSection';
+import LinksSection from '../../components/profile/LinksSection';
 
 export const ProfilePage = () => {
   const toast = useToast();
@@ -16,6 +17,12 @@ export const ProfilePage = () => {
   // Basic info edit state
   const [isEditingBasic, setIsEditingBasic] = useState(false);
   const [basicInfo, setBasicInfo] = useState({
+    // Contact information (preferred)
+    preferredFirstName: '',
+    preferredLastName: '',
+    preferredEmail: '',
+    preferredPhone: '',
+    // Professional details
     headline: '',
     summary: '',
     city: '',
@@ -63,6 +70,10 @@ export const ProfilePage = () => {
 
       // Initialize basic info form with profile data
       setBasicInfo({
+        preferredFirstName: data.preferredFirstName || data.firstName || '',
+        preferredLastName: data.preferredLastName || data.lastName || '',
+        preferredEmail: data.email || '',
+        preferredPhone: data.phone || '',
         headline: data.headline || '',
         summary: data.summary || '',
         city: data.city || '',
@@ -100,6 +111,10 @@ export const ProfilePage = () => {
   const handleBasicInfoCancel = () => {
     if (profile) {
       setBasicInfo({
+        preferredFirstName: profile.preferredFirstName || profile.firstName || '',
+        preferredLastName: profile.preferredLastName || profile.lastName || '',
+        preferredEmail: profile.email || '',
+        preferredPhone: profile.phone || '',
         headline: profile.headline || '',
         summary: profile.summary || '',
         city: profile.city || '',
@@ -281,6 +296,35 @@ export const ProfilePage = () => {
         <Card title="Basic Information">
           {!isEditingBasic ? (
             <div className="space-y-4">
+              {/* Contact Information */}
+              <div className="pb-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Preferred Contact Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Preferred Name</label>
+                    <p className="mt-1 text-gray-900">
+                      {profile?.preferredFirstName && profile?.preferredLastName
+                        ? `${profile.preferredFirstName} ${profile.preferredLastName}`
+                        : `${profile?.firstName} ${profile?.lastName}`}
+                    </p>
+                    {profile?.preferredFirstName !== profile?.firstName || profile?.preferredLastName !== profile?.lastName ? (
+                      <p className="text-sm text-gray-500">
+                        Legal name: {profile?.firstName} {profile?.lastName}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Preferred Email</label>
+                    <p className="mt-1 text-gray-900">{profile?.email}</p>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700">Preferred Phone</label>
+                    <p className="mt-1 text-gray-900">{profile?.phone || 'Not set'}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Professional Details */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-sm font-medium text-gray-700">Headline</label>
@@ -335,6 +379,44 @@ export const ProfilePage = () => {
             </div>
           ) : (
             <div className="space-y-4">
+              {/* Contact Information Fields */}
+              <div className="pb-4 border-b border-gray-200">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Preferred Contact Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <Input
+                    label="Preferred First Name"
+                    value={basicInfo.preferredFirstName}
+                    onChange={(e) => setBasicInfo({ ...basicInfo, preferredFirstName: e.target.value })}
+                    placeholder="How you'd like to be addressed"
+                    helperText="Defaults to your legal first name"
+                  />
+                  <Input
+                    label="Preferred Last Name"
+                    value={basicInfo.preferredLastName}
+                    onChange={(e) => setBasicInfo({ ...basicInfo, preferredLastName: e.target.value })}
+                    placeholder="How you'd like to be addressed"
+                    helperText="Defaults to your legal last name"
+                  />
+                  <Input
+                    label="Preferred Email"
+                    type="email"
+                    value={basicInfo.preferredEmail}
+                    onChange={(e) => setBasicInfo({ ...basicInfo, preferredEmail: e.target.value })}
+                    placeholder="your.email@example.com"
+                    helperText="Where employers should contact you"
+                  />
+                  <Input
+                    label="Preferred Phone"
+                    type="tel"
+                    value={basicInfo.preferredPhone}
+                    onChange={(e) => setBasicInfo({ ...basicInfo, preferredPhone: e.target.value })}
+                    placeholder="+1 (555) 123-4567"
+                    helperText="Your contact number"
+                  />
+                </div>
+              </div>
+
+              {/* Professional Details */}
               <Input
                 label="Headline"
                 value={basicInfo.headline}
@@ -503,6 +585,14 @@ export const ProfilePage = () => {
             </Button>
           </div>
         </Card>
+
+        {/* Professional Links Section */}
+        {profile && (
+          <LinksSection
+            links={profile.professionalLinks || []}
+            onUpdate={fetchProfile}
+          />
+        )}
 
         {/* Education Modal */}
         <Modal

@@ -10,14 +10,19 @@ export async function getCandidateProfile(req: Request, res: Response): Promise<
   try {
     const userId = (req as any).user.user_id;
 
-    // Get profile with education and work experience
+    // Get profile with user info, education, work experience, and professional links
     const result = await query(
       `SELECT cp.*,
+              u.email, u.phone, u.first_name, u.last_name,
+              u.preferred_first_name, u.preferred_last_name,
               (SELECT json_agg(e.* ORDER BY e.graduation_year DESC)
                FROM education e WHERE e.profile_id = cp.profile_id) as education,
               (SELECT json_agg(we.* ORDER BY we.start_date DESC)
-               FROM work_experience we WHERE we.profile_id = cp.profile_id) as work_experience
+               FROM work_experience we WHERE we.profile_id = cp.profile_id) as work_experience,
+              (SELECT json_agg(pl.* ORDER BY pl.display_order ASC, pl.created_at ASC)
+               FROM professional_links pl WHERE pl.profile_id = cp.profile_id) as professional_links
        FROM candidate_profiles cp
+       JOIN users u ON cp.user_id = u.user_id
        WHERE cp.user_id = $1`,
       [userId]
     );
@@ -31,10 +36,29 @@ export async function getCandidateProfile(req: Request, res: Response): Promise<
 
     const profile = result.rows[0];
 
+    // Transform professional_links from snake_case to camelCase
+    const professionalLinks = (profile.professional_links || []).map((link: any) => ({
+      linkId: link.link_id,
+      profileId: link.profile_id,
+      linkType: link.link_type,
+      url: link.url,
+      label: link.label,
+      displayOrder: link.display_order,
+      createdAt: link.created_at,
+    }));
+
     res.status(200).json(
       successResponse({
         profileId: profile.profile_id,
         userId: profile.user_id,
+        // Contact info
+        email: profile.email,
+        phone: profile.phone,
+        firstName: profile.first_name,
+        lastName: profile.last_name,
+        preferredFirstName: profile.preferred_first_name,
+        preferredLastName: profile.preferred_last_name,
+        // Profile details
         headline: profile.headline,
         summary: profile.summary,
         yearsExperience: profile.years_experience,
@@ -46,8 +70,14 @@ export async function getCandidateProfile(req: Request, res: Response): Promise<
         willingToRelocate: profile.willing_to_relocate,
         remotePreference: profile.remote_preference,
         profileVisibility: profile.profile_visibility,
+        // Deprecated fields (kept for backward compatibility)
+        linkedinUrl: profile.linkedin_url,
+        portfolioUrl: profile.portfolio_url,
+        githubUrl: profile.github_url,
+        // Related data
         education: profile.education || [],
         workExperience: profile.work_experience || [],
+        professionalLinks,
         createdAt: profile.created_at,
         updatedAt: profile.updated_at,
       })
@@ -68,6 +98,12 @@ export async function updateCandidateProfile(req: Request, res: Response): Promi
   try {
     const userId = (req as any).user.user_id;
     const {
+      // Contact information (preferred)
+      preferredFirstName,
+      preferredLastName,
+      preferredEmail,
+      preferredPhone,
+      // Professional details
       headline,
       summary,
       yearsExperience,
@@ -77,6 +113,9 @@ export async function updateCandidateProfile(req: Request, res: Response): Promi
       willingToRelocate,
       remotePreference,
       profileVisibility,
+      linkedinUrl,
+      portfolioUrl,
+      githubUrl,
     } = req.body;
 
     // Validate remote preference
@@ -95,6 +134,21 @@ export async function updateCandidateProfile(req: Request, res: Response): Promi
       return;
     }
 
+    // Update users table for contact information
+    if (preferredFirstName !== undefined || preferredLastName !== undefined ||
+        preferredEmail !== undefined || preferredPhone !== undefined) {
+      await query(
+        `UPDATE users
+         SET preferred_first_name = COALESCE(NULLIF($2, ''), preferred_first_name),
+             preferred_last_name = COALESCE(NULLIF($3, ''), preferred_last_name),
+             email = COALESCE(NULLIF($4, ''), email),
+             phone = COALESCE(NULLIF($5, ''), phone)
+         WHERE user_id = $1`,
+        [userId, preferredFirstName, preferredLastName, preferredEmail, preferredPhone]
+      );
+    }
+
+    // Update candidate_profiles table for professional details
     const result = await query(
       `UPDATE candidate_profiles
        SET headline = COALESCE($2, headline),
@@ -106,6 +160,9 @@ export async function updateCandidateProfile(req: Request, res: Response): Promi
            willing_to_relocate = COALESCE($8, willing_to_relocate),
            remote_preference = COALESCE($9, remote_preference),
            profile_visibility = COALESCE($10, profile_visibility),
+           linkedin_url = COALESCE($11, linkedin_url),
+           portfolio_url = COALESCE($12, portfolio_url),
+           github_url = COALESCE($13, github_url),
            updated_at = CURRENT_TIMESTAMP
        WHERE user_id = $1
        RETURNING *`,
@@ -120,6 +177,9 @@ export async function updateCandidateProfile(req: Request, res: Response): Promi
         willingToRelocate,
         remotePreference,
         profileVisibility,
+        linkedinUrl,
+        portfolioUrl,
+        githubUrl,
       ]
     );
 
@@ -144,6 +204,9 @@ export async function updateCandidateProfile(req: Request, res: Response): Promi
         willingToRelocate: profile.willing_to_relocate,
         remotePreference: profile.remote_preference,
         profileVisibility: profile.profile_visibility,
+        linkedinUrl: profile.linkedin_url,
+        portfolioUrl: profile.portfolio_url,
+        githubUrl: profile.github_url,
         updatedAt: profile.updated_at,
       })
     );
@@ -724,6 +787,184 @@ export async function deleteCandidateSkill(req: Request, res: Response): Promise
     console.error('Delete candidate skill error:', error);
     res.status(500).json(
       errorResponse('INTERNAL_ERROR', 'An error occurred deleting skill')
+    );
+  }
+}
+
+/**
+ * Add professional link
+ * POST /api/v1/profiles/candidate/links
+ */
+export async function addProfessionalLink(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+    const { linkType, url, label, displayOrder } = req.body;
+
+    // Validate required fields
+    if (!linkType || !url) {
+      res.status(400).json(
+        errorResponse('VALIDATION_ERROR', 'Link type and URL are required')
+      );
+      return;
+    }
+
+    // Validate link type
+    const validTypes = ['linkedin', 'github', 'portfolio', 'website', 'twitter', 'other'];
+    if (!validTypes.includes(linkType)) {
+      res.status(400).json(
+        errorResponse('INVALID_LINK_TYPE', `Link type must be one of: ${validTypes.join(', ')}`)
+      );
+      return;
+    }
+
+    // Get profile_id
+    const profileResult = await query(
+      'SELECT profile_id FROM candidate_profiles WHERE user_id = $1',
+      [userId]
+    );
+
+    if (profileResult.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('PROFILE_NOT_FOUND', 'Profile not found')
+      );
+      return;
+    }
+
+    const profileId = profileResult.rows[0].profile_id;
+
+    // Add professional link
+    const result = await query(
+      `INSERT INTO professional_links (profile_id, link_type, url, label, display_order)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`,
+      [profileId, linkType, url, label || null, displayOrder || 0]
+    );
+
+    const link = result.rows[0];
+
+    res.status(201).json(
+      successResponse({
+        linkId: link.link_id,
+        profileId: link.profile_id,
+        linkType: link.link_type,
+        url: link.url,
+        label: link.label,
+        displayOrder: link.display_order,
+        createdAt: link.created_at,
+      })
+    );
+  } catch (error) {
+    console.error('Add professional link error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred adding professional link')
+    );
+  }
+}
+
+/**
+ * Update professional link
+ * PUT /api/v1/profiles/candidate/links/:linkId
+ */
+export async function updateProfessionalLink(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+    const { linkId } = req.params;
+    const { linkType, url, label, displayOrder } = req.body;
+
+    // Verify ownership
+    const ownershipCheck = await query(
+      `SELECT pl.link_id
+       FROM professional_links pl
+       JOIN candidate_profiles cp ON pl.profile_id = cp.profile_id
+       WHERE pl.link_id = $1 AND cp.user_id = $2`,
+      [linkId, userId]
+    );
+
+    if (ownershipCheck.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('LINK_NOT_FOUND', 'Professional link not found')
+      );
+      return;
+    }
+
+    // Validate link type if provided
+    if (linkType) {
+      const validTypes = ['linkedin', 'github', 'portfolio', 'website', 'twitter', 'other'];
+      if (!validTypes.includes(linkType)) {
+        res.status(400).json(
+          errorResponse('INVALID_LINK_TYPE', `Link type must be one of: ${validTypes.join(', ')}`)
+        );
+        return;
+      }
+    }
+
+    // Update link
+    const result = await query(
+      `UPDATE professional_links
+       SET link_type = COALESCE($2, link_type),
+           url = COALESCE($3, url),
+           label = COALESCE($4, label),
+           display_order = COALESCE($5, display_order)
+       WHERE link_id = $1
+       RETURNING *`,
+      [linkId, linkType, url, label, displayOrder]
+    );
+
+    const link = result.rows[0];
+
+    res.status(200).json(
+      successResponse({
+        linkId: link.link_id,
+        profileId: link.profile_id,
+        linkType: link.link_type,
+        url: link.url,
+        label: link.label,
+        displayOrder: link.display_order,
+        createdAt: link.created_at,
+      })
+    );
+  } catch (error) {
+    console.error('Update professional link error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred updating professional link')
+    );
+  }
+}
+
+/**
+ * Delete professional link
+ * DELETE /api/v1/profiles/candidate/links/:linkId
+ */
+export async function deleteProfessionalLink(req: Request, res: Response): Promise<void> {
+  try {
+    const userId = (req as any).user.user_id;
+    const { linkId } = req.params;
+
+    // Verify ownership and delete
+    const result = await query(
+      `DELETE FROM professional_links pl
+       USING candidate_profiles cp
+       WHERE pl.profile_id = cp.profile_id
+         AND pl.link_id = $1
+         AND cp.user_id = $2
+       RETURNING pl.link_id`,
+      [linkId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      res.status(404).json(
+        errorResponse('LINK_NOT_FOUND', 'Professional link not found')
+      );
+      return;
+    }
+
+    res.status(200).json(
+      successResponse({ message: 'Professional link deleted successfully' })
+    );
+  } catch (error) {
+    console.error('Delete professional link error:', error);
+    res.status(500).json(
+      errorResponse('INTERNAL_ERROR', 'An error occurred deleting professional link')
     );
   }
 }

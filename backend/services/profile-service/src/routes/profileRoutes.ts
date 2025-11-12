@@ -12,6 +12,9 @@ import {
   addCandidateSkill,
   updateCandidateSkill,
   deleteCandidateSkill,
+  addProfessionalLink,
+  updateProfessionalLink,
+  deleteProfessionalLink,
 } from '../controllers/profileController';
 import { authenticate } from '../middleware/authMiddleware';
 
@@ -103,5 +106,26 @@ router.put('/candidate/skills/:skillId', updateCandidateSkill);
  * @access  Private (Candidate only)
  */
 router.delete('/candidate/skills/:skillId', deleteCandidateSkill);
+
+/**
+ * @route   POST /api/v1/profiles/candidate/links
+ * @desc    Add professional link to profile
+ * @access  Private (Candidate only)
+ */
+router.post('/candidate/links', addProfessionalLink);
+
+/**
+ * @route   PUT /api/v1/profiles/candidate/links/:linkId
+ * @desc    Update professional link
+ * @access  Private (Candidate only)
+ */
+router.put('/candidate/links/:linkId', updateProfessionalLink);
+
+/**
+ * @route   DELETE /api/v1/profiles/candidate/links/:linkId
+ * @desc    Delete professional link
+ * @access  Private (Candidate only)
+ */
+router.delete('/candidate/links/:linkId', deleteProfessionalLink);
 
 export default router;

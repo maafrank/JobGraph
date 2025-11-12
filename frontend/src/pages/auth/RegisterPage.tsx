@@ -12,6 +12,13 @@ export const RegisterPage = () => {
     firstName: '',
     lastName: '',
     role: 'candidate' as UserRole,
+    // Candidate-specific fields
+    phone: '',
+    linkedinUrl: '',
+    portfolioUrl: '',
+    githubUrl: '',
+    // Employer-specific fields
+    companyName: '',
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -49,6 +56,24 @@ export const RegisterPage = () => {
 
     if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    // Employer-specific validation
+    if (formData.role === 'employer' && !formData.companyName) {
+      newErrors.companyName = 'Company name is required';
+    }
+
+    // URL validation (optional fields, but validate format if provided)
+    if (formData.linkedinUrl && !/^https?:\/\/.+/.test(formData.linkedinUrl)) {
+      newErrors.linkedinUrl = 'Please enter a valid URL (starting with http:// or https://)';
+    }
+
+    if (formData.portfolioUrl && !/^https?:\/\/.+/.test(formData.portfolioUrl)) {
+      newErrors.portfolioUrl = 'Please enter a valid URL (starting with http:// or https://)';
+    }
+
+    if (formData.githubUrl && !/^https?:\/\/.+/.test(formData.githubUrl)) {
+      newErrors.githubUrl = 'Please enter a valid URL (starting with http:// or https://)';
     }
 
     setErrors(newErrors);
@@ -140,6 +165,20 @@ export const RegisterPage = () => {
               />
             </div>
 
+            {/* Employer-specific field */}
+            {formData.role === 'employer' && (
+              <Input
+                label="Company name"
+                type="text"
+                value={formData.companyName}
+                onChange={(e) => handleChange('companyName', e.target.value)}
+                error={errors.companyName}
+                placeholder="Acme Corporation"
+                helperText="Your company profile will be automatically created"
+                required
+              />
+            )}
+
             <Input
               label="Email address"
               type="email"
@@ -149,6 +188,47 @@ export const RegisterPage = () => {
               placeholder="you@example.com"
               required
             />
+
+            {/* Candidate-specific fields */}
+            {formData.role === 'candidate' && (
+              <>
+                <Input
+                  label="Phone number (optional)"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => handleChange('phone', e.target.value)}
+                  error={errors.phone}
+                  placeholder="+1 (555) 123-4567"
+                />
+
+                <Input
+                  label="LinkedIn URL (optional)"
+                  type="url"
+                  value={formData.linkedinUrl}
+                  onChange={(e) => handleChange('linkedinUrl', e.target.value)}
+                  error={errors.linkedinUrl}
+                  placeholder="https://linkedin.com/in/yourprofile"
+                />
+
+                <Input
+                  label="Portfolio URL (optional)"
+                  type="url"
+                  value={formData.portfolioUrl}
+                  onChange={(e) => handleChange('portfolioUrl', e.target.value)}
+                  error={errors.portfolioUrl}
+                  placeholder="https://yourportfolio.com"
+                />
+
+                <Input
+                  label="GitHub URL (optional)"
+                  type="url"
+                  value={formData.githubUrl}
+                  onChange={(e) => handleChange('githubUrl', e.target.value)}
+                  error={errors.githubUrl}
+                  placeholder="https://github.com/yourusername"
+                />
+              </>
+            )}
 
             <div className="relative">
               <Input

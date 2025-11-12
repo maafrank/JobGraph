@@ -43,6 +43,9 @@ CREATE TABLE candidate_profiles (
     willing_to_relocate BOOLEAN DEFAULT FALSE,
     remote_preference VARCHAR(20) CHECK (remote_preference IN ('remote', 'hybrid', 'onsite', 'flexible')),
     profile_visibility VARCHAR(20) DEFAULT 'public' CHECK (profile_visibility IN ('public', 'private', 'anonymous')),
+    linkedin_url VARCHAR(255), -- LinkedIn profile URL (Migration 009)
+    portfolio_url VARCHAR(255), -- Portfolio/personal website URL (Migration 009)
+    github_url VARCHAR(255), -- GitHub profile URL (Migration 009)
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

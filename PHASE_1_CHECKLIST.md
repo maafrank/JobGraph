@@ -838,28 +838,35 @@ When the platform reaches production scale (10,000+ users, significant file volu
   - [ ] Test authorization (only owner can edit)
 - **Note**: We have comprehensive bash test scripts in /tmp/ but missing Jest-based integration tests for CI/CD
 
-### 3. Enhanced Registration Flow (UX Improvement) - HIGH PRIORITY ⭐
-- [ ] **Employer Enhanced Registration**
-  - [ ] Collect company name during employer registration
-  - [ ] Auto-create company_profiles record on employer registration
-  - [ ] Link user to company via company_users table
-  - [ ] Skip "Create Company" step in employer onboarding
-  - [ ] Backend: Modify `/api/v1/auth/register` to handle employer-specific data
-  - [ ] Frontend: Add company name field to registration form (conditional on employer role)
-  - [ ] Update database schema if needed (verify company_name can be collected during registration)
+### 3. Enhanced Registration Flow (UX Improvement) - HIGH PRIORITY ⭐ ✅ COMPLETE
+- [x] **Employer Enhanced Registration**
+  - [x] Collect company name during employer registration
+  - [x] Auto-create company_profiles record on employer registration
+  - [x] Link user to company via company_users table (as 'owner')
+  - [x] Skip "Create Company" step in employer onboarding
+  - [x] Backend: Modify `/api/v1/auth/register` to handle employer-specific data
+  - [x] Frontend: Add company name field to registration form (conditional on employer role)
+  - [x] Validation: Company name required for employer registration
 
-- [ ] **Candidate Enhanced Registration**
-  - [ ] Collect additional profile fields during candidate registration
-    - [ ] Phone number (add to users or candidate_profiles table)
-    - [ ] LinkedIn URL
-    - [ ] Portfolio URL
-    - [ ] GitHub URL
-    - [ ] Other social/professional links (JSONB field)
-  - [ ] Backend: Modify `/api/v1/auth/register` to accept additional candidate fields
-  - [ ] Frontend: Add fields to candidate registration form
-  - [ ] Update database schema: Add social_links JSONB to candidate_profiles
-  - [ ] Auto-populate candidate_profiles with collected data on registration
-  - [ ] Skip "Complete Profile" step if basic info provided during registration
+- [x] **Candidate Enhanced Registration**
+  - [x] Collect additional profile fields during candidate registration
+    - [x] Phone number (stored in users table)
+    - [x] LinkedIn URL
+    - [x] Portfolio URL
+    - [x] GitHub URL
+  - [x] Backend: Modify `/api/v1/auth/register` to accept additional candidate fields
+  - [x] Frontend: Add fields to candidate registration form (conditional on candidate role)
+  - [x] Database migration 009: Add linkedin_url, portfolio_url, github_url to candidate_profiles
+  - [x] Auto-populate candidate_profiles with collected data on registration
+  - [x] URL validation on frontend (optional fields, format checked if provided)
+  - [x] Profile Service updated to return and update social links
+
+- [x] **Testing**
+  - [x] Test script: `/tmp/test-enhanced-registration.sh`
+  - [x] 13/13 tests passing (100%)
+  - [x] Employer flow: Company auto-creation, user linking, validation
+  - [x] Candidate flow: Phone and social links saved, optional fields work
+  - [x] Database integrity verified via direct queries
 
 ### 4. Settings Pages (User Management) - HIGH PRIORITY ⭐ ✅ COMPLETE
 - [x] **Candidate Settings Page** (`/candidate/settings`)
@@ -918,8 +925,37 @@ When the platform reaches production scale (10,000+ users, significant file volu
   - [x] Auto-logout after password change (tokens revoked)
   - [x] Auto-redirect after account deletion
 
-### 5. Profile Enhancements (Optional - Lower Priority)
-- [ ] User photo upload for candidate profiles
+### 5. Profile Enhancements ✅ COMPLETE
+- [x] **Preferred Contact Information** (Candidate Profiles)
+  - [x] Database schema: preferred_first_name, preferred_last_name, email, phone in users table
+  - [x] Backend API support in updateCandidateProfile controller
+  - [x] Frontend ProfilePage: Editable contact info fields in Basic Information card
+  - [x] Display preferred name or fallback to legal name
+  - [x] Helper text for "where employers should contact you"
+  - [x] Resume parser auto-fill for phone number from uploaded resumes
+
+- [x] **Professional Links** (Candidate Profiles)
+  - [x] Database migration 010: professional_links table with link_type, url, label, display_order
+  - [x] Supported link types: linkedin, github, portfolio, website, twitter, other
+  - [x] Backend API endpoints (Profile Service)
+    - [x] POST /api/v1/profiles/candidate/links - Add professional link
+    - [x] PUT /api/v1/profiles/candidate/links/:linkId - Update link
+    - [x] DELETE /api/v1/profiles/candidate/links/:linkId - Delete link
+    - [x] Included in getCandidateProfile response (JSON aggregation)
+  - [x] Frontend LinksSection component
+    - [x] Display links with icons and labels
+    - [x] Add/Edit link modal with type dropdown and URL validation
+    - [x] Custom label support (optional)
+    - [x] Delete link with confirmation
+    - [x] Positioned below Work Experience section
+  - [x] Resume parser integration (auto-create links from resume)
+    - [x] Extract LinkedIn, GitHub, website URLs from resume contact info
+    - [x] Auto-populate professional_links table on resume upload
+  - [x] Bug fix: Snake_case to camelCase transformation in getCandidateProfile
+    - [x] Backend returns linkId, profileId, linkType (not link_id, profile_id, link_type)
+    - [x] Fixes React "key" prop warning in LinksSection component
+
+- [ ] User photo upload for candidate profiles (Future Enhancement)
   - [ ] Add profile_photo_url field to candidate_profiles table
   - [ ] S3 integration for photo storage (similar to resume upload pattern)
   - [ ] Frontend upload component with image preview

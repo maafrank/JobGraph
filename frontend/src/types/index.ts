@@ -40,22 +40,46 @@ export interface AuthResponse {
 
 // Candidate Profile types
 export interface CandidateProfile {
-  profile_id: string;
-  user_id: string;
+  profileId: string;
+  userId: string;
+  // Contact info
+  email: string;
+  phone: string | null;
+  firstName: string;
+  lastName: string;
+  preferredFirstName: string | null;
+  preferredLastName: string | null;
+  // Profile details
   headline: string | null;
   summary: string | null;
-  years_of_experience: number | null;
+  yearsExperience: number | null;
   city: string | null;
   state: string | null;
   country: string | null;
-  remote_preference: 'onsite' | 'hybrid' | 'remote' | null;
-  willing_to_relocate: boolean;
-  profile_visibility: 'public' | 'private' | 'anonymous';
-  resume_url: string | null;
-  created_at: string;
-  updated_at: string;
+  remotePreference: 'onsite' | 'hybrid' | 'remote' | 'flexible' | null;
+  willingToRelocate: boolean;
+  profileVisibility: 'public' | 'private' | 'anonymous';
+  resumeUrl: string | null;
+  // Deprecated (kept for compatibility)
+  linkedinUrl?: string | null;
+  portfolioUrl?: string | null;
+  githubUrl?: string | null;
+  // Related data
   education?: Education[];
-  work_experience?: WorkExperience[];
+  workExperience?: WorkExperience[];
+  professionalLinks?: ProfessionalLink[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ProfessionalLink {
+  linkId: string;
+  profileId: string;
+  linkType: 'linkedin' | 'github' | 'portfolio' | 'website' | 'twitter' | 'other';
+  url: string;
+  label: string | null;
+  displayOrder: number;
+  createdAt: string;
 }
 
 export interface Education {

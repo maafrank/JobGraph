@@ -880,7 +880,49 @@ async function autoApplyParsedData(
     const profileId = profileResult.rows[0].profile_id;
     const contactInfo = parsedData.contact_info;
 
-    // 1. Update basic profile info (only if not already set)
+    // 1. Update phone number in users table (if extracted from resume)
+    if (contactInfo.phone) {
+      await query(
+        `UPDATE users
+         SET phone = COALESCE(NULLIF(phone, ''), $1)
+         WHERE user_id = $2`,
+        [contactInfo.phone, userId]
+      );
+      console.log(`[ResumeParser] Updated phone number: ${contactInfo.phone}`);
+    }
+
+    // 2. Create professional links from resume (linkedin, github, website)
+    const linkMappings = [
+      { contactField: 'linkedin', linkType: 'linkedin' },
+      { contactField: 'github', linkType: 'github' },
+      { contactField: 'website', linkType: 'website' }
+    ];
+
+    for (const mapping of linkMappings) {
+      const url = (contactInfo as any)[mapping.contactField];
+      if (url) {
+        // Ensure URL has protocol
+        const fullUrl = url.startsWith('http') ? url : `https://${url}`;
+
+        // Check if link already exists
+        const existingLink = await query(
+          `SELECT link_id FROM professional_links
+           WHERE profile_id = $1 AND link_type = $2`,
+          [profileId, mapping.linkType]
+        );
+
+        if (existingLink.rows.length === 0) {
+          await query(
+            `INSERT INTO professional_links (profile_id, link_type, url, display_order)
+             VALUES ($1, $2, $3, $4)`,
+            [profileId, mapping.linkType, fullUrl, 0]
+          );
+          console.log(`[ResumeParser] Added ${mapping.linkType} link: ${fullUrl}`);
+        }
+      }
+    }
+
+    // 3. Update basic profile info (only if not already set)
 
     // Calculate years of experience from work history
     let yearsOfExperience = 0;
@@ -927,7 +969,7 @@ async function autoApplyParsedData(
     );
     console.log('[ResumeParser] Updated basic profile info (location, summary, headline, years_experience)');
 
-    // 2. Add education entries (check for duplicates)
+    // 4. Add education entries (check for duplicates)
     const existingEducation = await query(
       `SELECT degree, institution FROM education WHERE profile_id = $1`,
       [profileId]
@@ -958,7 +1000,7 @@ async function autoApplyParsedData(
       }
     }
 
-    // 3. Add work experience entries (check for duplicates)
+    // 5. Add work experience entries (check for duplicates)
     const existingWork = await query(
       `SELECT title, company FROM work_experience WHERE profile_id = $1`,
       [profileId]
@@ -990,7 +1032,7 @@ async function autoApplyParsedData(
       }
     }
 
-    // 4. Add skills (check for duplicates and valid skill names)
+    // 6. Add skills (check for duplicates and valid skill names)
     for (const skillData of parsedData.skills) {
       // Find skill_id by name
       const skillResult = await query(

@@ -21,13 +21,39 @@ import {
  */
 export async function register(req: Request, res: Response): Promise<void> {
   try {
-    const { email, password, firstName, lastName, role } = req.body;
+    const {
+      email,
+      password,
+      firstName,
+      lastName,
+      role,
+      // Candidate-specific fields (optional)
+      phone,
+      linkedinUrl,
+      portfolioUrl,
+      githubUrl,
+      // Employer-specific fields (optional)
+      companyName,
+      // Optional: preferred names (defaults to firstName/lastName if not provided)
+      preferredFirstName,
+      preferredLastName,
+    } = req.body;
 
     // Validate required fields
     if (!email || !password || !firstName || !lastName || !role) {
       res.status(400).json(
         errorResponse('VALIDATION_ERROR', 'Missing required fields', {
           required: ['email', 'password', 'firstName', 'lastName', 'role'],
+        })
+      );
+      return;
+    }
+
+    // Validate employer-specific required fields
+    if (role === 'employer' && !companyName) {
+      res.status(400).json(
+        errorResponse('VALIDATION_ERROR', 'Company name is required for employer registration', {
+          required: ['companyName'],
         })
       );
       return;
@@ -77,12 +103,22 @@ export async function register(req: Request, res: Response): Promise<void> {
     // Hash password
     const passwordHash = await hashPassword(password);
 
-    // Create user
+    // Create user (include phone and preferred names if provided, auto-fill preferred names with actual names)
     const result = await query(
-      `INSERT INTO users (email, password_hash, first_name, last_name, role, email_verified)
-       VALUES ($1, $2, $3, $4, $5, $6)
-       RETURNING user_id, email, first_name, last_name, role, created_at`,
-      [email.toLowerCase(), passwordHash, firstName, lastName, role, false]
+      `INSERT INTO users (email, password_hash, first_name, last_name, phone, preferred_first_name, preferred_last_name, role, email_verified)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING user_id, email, first_name, last_name, phone, preferred_first_name, preferred_last_name, role, created_at`,
+      [
+        email.toLowerCase(),
+        passwordHash,
+        firstName,
+        lastName,
+        phone || null,
+        preferredFirstName || firstName, // Auto-fill with firstName if not provided
+        preferredLastName || lastName,   // Auto-fill with lastName if not provided
+        role,
+        false
+      ]
     );
 
     const user = result.rows[0];
@@ -90,8 +126,38 @@ export async function register(req: Request, res: Response): Promise<void> {
     // Auto-create candidate profile if role is candidate
     if (role === 'candidate') {
       await query(
-        'INSERT INTO candidate_profiles (user_id) VALUES ($1)',
-        [user.user_id]
+        `INSERT INTO candidate_profiles (
+          user_id,
+          linkedin_url,
+          portfolio_url,
+          github_url
+        ) VALUES ($1, $2, $3, $4)`,
+        [
+          user.user_id,
+          linkedinUrl || null,
+          portfolioUrl || null,
+          githubUrl || null,
+        ]
+      );
+    }
+
+    // Auto-create company profile if role is employer
+    if (role === 'employer') {
+      // Create company
+      const companyResult = await query(
+        `INSERT INTO companies (name)
+         VALUES ($1)
+         RETURNING company_id, name, created_at`,
+        [companyName]
+      );
+
+      const company = companyResult.rows[0];
+
+      // Link user to company as owner
+      await query(
+        `INSERT INTO company_users (user_id, company_id, role)
+         VALUES ($1, $2, $3)`,
+        [user.user_id, company.company_id, 'owner']
       );
     }
 

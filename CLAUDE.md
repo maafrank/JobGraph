@@ -83,7 +83,10 @@ Refer to [DATABASE_SCHEMA.sql](DATABASE_SCHEMA.sql) for complete schema. Critica
 ### Service Implementation Details
 
 **Auth Service** (Port 3000):
-- Auto-creates `candidate_profiles` record on registration for `role='candidate'`
+- **Enhanced Registration Flow** (Migration 009):
+  - **Employer Registration**: Requires `companyName` field, auto-creates company profile and links user as 'owner' in `company_users` table
+  - **Candidate Registration**: Accepts optional fields: `phone` (stored in users table), `linkedinUrl`, `portfolioUrl`, `githubUrl` (stored in candidate_profiles)
+  - Auto-creates `candidate_profiles` record on registration for `role='candidate'` with social links if provided
 - JWT payload uses `user_id` (not `userId`) to match `JwtPayload` interface
 - Database uses `user_id` as primary key (not `id`)
 - Token expiration configured via `JWT_EXPIRES_IN` env variable

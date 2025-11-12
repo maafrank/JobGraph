@@ -83,7 +83,7 @@ export const SkillsPage = () => {
 
   const handleAddSkill = (skill: Skill) => {
     // Check if user already has this skill
-    const existingSkill = mySkills.find((s) => s.skill_id === skill.skill_id);
+    const existingSkill = mySkills.find((s) => s.skill_id === skill.skillId);
     if (existingSkill) {
       toast.info('You already have this skill. Edit it from My Skills tab.');
       return;
@@ -113,7 +113,7 @@ export const SkillsPage = () => {
       } else if (selectedSkill) {
         // Add new skill
         await profileService.addSkill({
-          skillId: selectedSkill.skill_id,
+          skillId: selectedSkill.skillId,
           score: skillScore,
         });
         toast.success('Skill added successfully');
@@ -337,17 +337,17 @@ export const SkillsPage = () => {
               ) : allSkills.length > 0 ? (
                 <div className="grid gap-4">
                   {allSkills.map((skill) => {
-                    const hasSkill = mySkills.some((s) => s.skill_id === skill.skill_id);
+                    const hasSkill = mySkills.some((s) => s.skill_id === skill.skillId);
                     return (
                       <div
-                        key={skill.skill_id}
+                        key={skill.skillId}
                         className="p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-3">
                               <h3 className="text-lg font-medium text-gray-900">
-                                {skill.skill_name}
+                                {skill.name}
                               </h3>
                               <span className="text-xs px-2 py-1 bg-gray-100 text-gray-700 rounded">
                                 {skill.category}
@@ -404,7 +404,7 @@ export const SkillsPage = () => {
               Skill
             </label>
             <p className="text-lg font-medium text-gray-900">
-              {editingSkillScore?.skill_name || selectedSkill?.skill_name}
+              {editingSkillScore?.skill_name || selectedSkill?.name}
             </p>
           </div>
 

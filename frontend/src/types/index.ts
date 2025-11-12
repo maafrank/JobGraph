@@ -103,12 +103,12 @@ export interface Company {
 
 // Skill types
 export interface Skill {
-  skill_id: string;
-  skill_name: string;
+  skillId: string;
+  name: string;
   category: string;
   description: string | null;
   active: boolean;
-  created_at: string;
+  createdAt: string;
 }
 
 export interface UserSkillScore {

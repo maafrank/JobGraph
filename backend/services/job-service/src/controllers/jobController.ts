@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { query, successResponse, errorResponse } from '@jobgraph/common';
+import { triggerMatchingCalculation } from '../utils/matchingService';
 
 /**
  * Create a new job posting
@@ -276,10 +277,11 @@ export async function getMyJobs(req: Request, res: Response): Promise<void> {
     );
     const total = parseInt(countResult.rows[0].count);
 
-    // Get jobs with company info and skill count
+    // Get jobs with company info, skill count, and match count
     const jobsResult = await query(
       `SELECT j.*, c.name as company_name,
-              (SELECT COUNT(*) FROM job_skills js WHERE js.job_id = j.job_id AND js.required = true) as required_skills_count
+              (SELECT COUNT(*) FROM job_skills js WHERE js.job_id = j.job_id AND js.required = true) as required_skills_count,
+              (SELECT COUNT(*) FROM job_matches jm WHERE jm.job_id = j.job_id) as match_count
        FROM jobs j
        JOIN companies c ON j.company_id = c.company_id
        ${whereClause}
@@ -309,6 +311,7 @@ export async function getMyJobs(req: Request, res: Response): Promise<void> {
       status: job.status,
       views: job.views,
       requiredSkillsCount: parseInt(job.required_skills_count),
+      matchCount: parseInt(job.match_count),
       createdAt: job.created_at,
       updatedAt: job.updated_at,
       expiresAt: job.expires_at,
@@ -484,6 +487,17 @@ export async function updateJob(req: Request, res: Response): Promise<void> {
 
     const job = result.rows[0];
 
+    // Auto-trigger matching calculation if job is active
+    if (job.status === 'active') {
+      const authToken = (req as any).headers.authorization?.replace('Bearer ', '');
+      if (authToken) {
+        // Fire and forget - don't wait for matching to complete
+        triggerMatchingCalculation(job.job_id, authToken).catch(err => {
+          console.error('Background matching calculation failed:', err);
+        });
+      }
+    }
+
     res.json(
       successResponse({
         jobId: job.job_id,
@@ -617,6 +631,21 @@ export async function addJobSkill(req: Request, res: Response): Promise<void> {
     const jobSkill = result.rows[0];
     const skill = skillCheck.rows[0];
 
+    // Check if job is active - if so, re-trigger matching calculation
+    const jobStatusCheck = await query(
+      'SELECT status FROM jobs WHERE job_id = $1',
+      [jobId]
+    );
+    if (jobStatusCheck.rows.length > 0 && jobStatusCheck.rows[0].status === 'active') {
+      const authToken = (req as any).headers.authorization?.replace('Bearer ', '');
+      if (authToken) {
+        // Fire and forget - don't wait for matching to complete
+        triggerMatchingCalculation(jobId, authToken).catch(err => {
+          console.error('Background matching calculation failed:', err);
+        });
+      }
+    }
+
     res.status(201).json(
       successResponse({
         jobSkillId: jobSkill.job_skill_id,
@@ -694,6 +723,21 @@ export async function updateJobSkill(req: Request, res: Response): Promise<void>
 
     const jobSkill = result.rows[0];
 
+    // Check if job is active - if so, re-trigger matching calculation
+    const jobStatusCheck = await query(
+      'SELECT status FROM jobs WHERE job_id = $1',
+      [jobId]
+    );
+    if (jobStatusCheck.rows.length > 0 && jobStatusCheck.rows[0].status === 'active') {
+      const authToken = (req as any).headers.authorization?.replace('Bearer ', '');
+      if (authToken) {
+        // Fire and forget - don't wait for matching to complete
+        triggerMatchingCalculation(jobId, authToken).catch(err => {
+          console.error('Background matching calculation failed:', err);
+        });
+      }
+    }
+
     res.json(
       successResponse({
         jobSkillId: jobSkill.job_skill_id,
@@ -748,6 +792,21 @@ export async function deleteJobSkill(req: Request, res: Response): Promise<void>
         errorResponse('JOB_SKILL_NOT_FOUND', 'This skill is not associated with the job')
       );
       return;
+    }
+
+    // Check if job is active - if so, re-trigger matching calculation
+    const jobStatusCheck = await query(
+      'SELECT status FROM jobs WHERE job_id = $1',
+      [jobId]
+    );
+    if (jobStatusCheck.rows.length > 0 && jobStatusCheck.rows[0].status === 'active') {
+      const authToken = (req as any).headers.authorization?.replace('Bearer ', '');
+      if (authToken) {
+        // Fire and forget - don't wait for matching to complete
+        triggerMatchingCalculation(jobId, authToken).catch(err => {
+          console.error('Background matching calculation failed:', err);
+        });
+      }
     }
 
     res.json(

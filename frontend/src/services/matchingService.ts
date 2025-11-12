@@ -177,4 +177,27 @@ export const matchingService = {
   updateApplicationStatus: async (applicationId: string, status: string): Promise<void> => {
     await matchingApi.put(`/matching/applications/${applicationId}/status`, { status });
   },
+
+  // Get contacted candidates count across all jobs (employer only)
+  getContactedCandidatesCount: async (jobIds: string[]): Promise<number> => {
+    if (jobIds.length === 0) return 0;
+
+    // Fetch candidates for each job and count contacted status
+    const contactedCounts = await Promise.all(
+      jobIds.map(async (jobId) => {
+        try {
+          const response = await matchingApi.get<ApiResponse<JobCandidatesResponse>>(
+            `/matching/jobs/${jobId}/candidates`
+          );
+          const candidates = response.data.data?.candidates || [];
+          return candidates.filter(c => c.status === 'contacted').length;
+        } catch (error) {
+          // If job has no matches yet, return 0
+          return 0;
+        }
+      })
+    );
+
+    return contactedCounts.reduce((sum, count) => sum + count, 0);
+  },
 };

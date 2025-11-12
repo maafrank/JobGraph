@@ -85,7 +85,7 @@ export const Navbar = () => {
             {isAuthenticated ? (
               <div className="flex items-center space-x-4">
                 <span className="text-sm text-gray-700">
-                  Welcome, <span className="font-medium">{user?.first_name}</span>
+                  Welcome, <span className="font-medium">{user?.firstName}</span>
                 </span>
                 <Button variant="ghost" size="sm" onClick={handleLogout}>
                   Sign out

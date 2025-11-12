@@ -122,4 +122,30 @@ export const jobService = {
   removeJobSkill: async (jobId: string, skillId: string): Promise<void> => {
     await jobApi.delete(`/jobs/${jobId}/skills/${skillId}`);
   },
+
+  // Get employer dashboard statistics
+  getEmployerStats: async (): Promise<{
+    activeJobsCount: number;
+    totalMatchesCount: number;
+  }> => {
+    // Fetch all jobs with match counts (limit set high to get all jobs)
+    const response = await jobApi.get<ApiResponse<Job[]>>(
+      `/jobs/my-jobs?limit=1000`
+    );
+
+    const jobs = response.data.data || [];
+
+    // Count active jobs
+    const activeJobsCount = jobs.filter(job => job.status === 'active').length;
+
+    // Sum up all match counts across jobs
+    const totalMatchesCount = jobs.reduce((sum, job: any) => {
+      return sum + (job.matchCount || 0);
+    }, 0);
+
+    return {
+      activeJobsCount,
+      totalMatchesCount,
+    };
+  },
 };

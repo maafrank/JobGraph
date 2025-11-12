@@ -12,8 +12,42 @@ const JobManagementPage = () => {
   const toast = useToast();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [calculatingMatches, setCalculatingMatches] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [calculatingMatchesFor, setCalculatingMatchesFor] = useState<string | null>(null);
+
+  // Calculate matches for all active jobs
+  const calculateMatchesForActiveJobs = async (activeJobs: Job[]) => {
+    if (activeJobs.length === 0) return;
+
+    setCalculatingMatches(true);
+    let successCount = 0;
+    let totalMatches = 0;
+
+    try {
+      // Calculate matches for each active job in parallel
+      const results = await Promise.allSettled(
+        activeJobs.map(job => matchingService.calculateJobMatches(job.jobId))
+      );
+
+      // Count successes
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          successCount++;
+          totalMatches += result.value.totalMatches;
+        } else {
+          console.error(`Failed to calculate matches for job ${activeJobs[index].jobId}:`, result.reason);
+        }
+      });
+
+      if (successCount > 0) {
+        console.log(`✓ Calculated matches for ${successCount}/${activeJobs.length} active jobs (${totalMatches} total matches)`);
+      }
+    } catch (error) {
+      console.error('Error calculating matches:', error);
+    } finally {
+      setCalculatingMatches(false);
+    }
+  };
 
   // Fetch jobs based on status filter
   const fetchJobs = async () => {
@@ -28,6 +62,21 @@ const JobManagementPage = () => {
         : fetchedJobs;
 
       setJobs(filteredJobs);
+
+      // After fetching jobs, calculate matches for all active jobs
+      const activeJobs = filteredJobs.filter(job => job.status === 'active');
+      if (activeJobs.length > 0) {
+        // Calculate matches in the background (don't block UI)
+        calculateMatchesForActiveJobs(activeJobs).then(() => {
+          // Refresh jobs to get updated match counts
+          jobService.getMyJobs(params).then(({ jobs: refreshedJobs }) => {
+            const refreshedFiltered = statusFilter === 'all'
+              ? refreshedJobs.filter(job => job.status !== 'cancelled')
+              : refreshedJobs;
+            setJobs(refreshedFiltered);
+          });
+        });
+      }
     } catch (error: any) {
       console.error('Error fetching jobs:', error);
       toast.error('Failed to load jobs');
@@ -45,33 +94,12 @@ const JobManagementPage = () => {
     try {
       await jobService.updateJob(jobId, { status: newStatus });
       toast.success(
-        `Job ${newStatus === 'active' ? 'reopened' : 'closed'} successfully`
+        `Job ${newStatus === 'active' ? 'reopened and matches calculated' : 'closed'} successfully`
       );
       fetchJobs(); // Refresh the list
     } catch (error: any) {
       console.error('Error updating job status:', error);
       toast.error('Failed to update job status');
-    }
-  };
-
-  // Handle trigger matching calculation
-  const handleCalculateMatches = async (jobId: string) => {
-    setCalculatingMatchesFor(jobId);
-    try {
-      const result = await matchingService.calculateJobMatches(jobId);
-      toast.success(
-        `Matching complete! Found ${result.totalMatches} qualified candidate${
-          result.totalMatches !== 1 ? 's' : ''
-        }`
-      );
-      fetchJobs(); // Refresh to get updated match counts
-    } catch (error: any) {
-      console.error('Error calculating matches:', error);
-      toast.error(
-        error.response?.data?.error?.message || 'Failed to calculate matches'
-      );
-    } finally {
-      setCalculatingMatchesFor(null);
     }
   };
 
@@ -175,6 +203,14 @@ const JobManagementPage = () => {
             </button>
           ))}
         </div>
+
+        {/* Calculating Matches Indicator */}
+        {calculatingMatches && (
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-md flex items-center gap-2 text-sm text-blue-700">
+            <LoadingSpinner size="sm" />
+            <span>Calculating matches for active jobs...</span>
+          </div>
+        )}
       </div>
 
       {/* Jobs List */}
@@ -237,6 +273,11 @@ const JobManagementPage = () => {
                         {job.requiredSkillsCount !== undefined && (
                           <span>🔧 {job.requiredSkillsCount} required skills</span>
                         )}
+                        {job.status === 'active' && job.matchCount !== undefined && (
+                          <span className="font-medium text-blue-600">
+                            👥 {job.matchCount} {job.matchCount === 1 ? 'match' : 'matches'}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -247,17 +288,7 @@ const JobManagementPage = () => {
                   {job.status === 'active' && (
                     <>
                       <Button
-                        onClick={() => handleCalculateMatches(job.jobId)}
-                        size="sm"
-                        disabled={calculatingMatchesFor === job.jobId}
-                      >
-                        {calculatingMatchesFor === job.jobId
-                          ? 'Calculating...'
-                          : 'Calculate Matches'}
-                      </Button>
-                      <Button
                         onClick={() => handleViewCandidates(job.jobId)}
-                        variant="secondary"
                         size="sm"
                       >
                         View Candidates
@@ -282,7 +313,6 @@ const JobManagementPage = () => {
                       </Button>
                       <Button
                         onClick={() => handleStatusChange(job.jobId, 'active')}
-                        variant="secondary"
                         size="sm"
                       >
                         Publish Job
@@ -303,6 +333,7 @@ const JobManagementPage = () => {
                     onClick={() => handleEditJob(job.jobId)}
                     variant="ghost"
                     size="sm"
+                    className="border border-gray-300 hover:border-gray-400"
                   >
                     Edit
                   </Button>

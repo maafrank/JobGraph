@@ -1,10 +1,52 @@
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { Layout } from '../../components/layout';
-import { Card, Button } from '../../components/common';
+import { Card, Button, LoadingSpinner, useToast } from '../../components/common';
 import { useAuthStore } from '../../contexts/AuthContext';
+import { jobService } from '../../services/jobService';
+import { matchingService } from '../../services/matchingService';
 
 export const EmployerDashboard = () => {
   const user = useAuthStore((state) => state.user);
+  const toast = useToast();
+
+  const [loading, setLoading] = useState(true);
+  const [stats, setStats] = useState({
+    activeJobsCount: 0,
+    totalMatchesCount: 0,
+    contactedCandidatesCount: 0,
+  });
+
+  useEffect(() => {
+    fetchDashboardStats();
+  }, []);
+
+  const fetchDashboardStats = async () => {
+    try {
+      setLoading(true);
+
+      // Fetch job statistics (active jobs count and total matches count)
+      const jobStats = await jobService.getEmployerStats();
+
+      // Fetch all jobs to get job IDs for contacted candidates count
+      const { jobs } = await jobService.getMyJobs({ limit: 1000 });
+      const jobIds = jobs.map(job => job.jobId);
+
+      // Fetch contacted candidates count across all jobs
+      const contactedCount = await matchingService.getContactedCandidatesCount(jobIds);
+
+      setStats({
+        activeJobsCount: jobStats.activeJobsCount,
+        totalMatchesCount: jobStats.totalMatchesCount,
+        contactedCandidatesCount: contactedCount,
+      });
+    } catch (error: any) {
+      console.error('Error fetching dashboard stats:', error);
+      toast('Failed to load dashboard statistics', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Layout>
@@ -12,7 +54,7 @@ export const EmployerDashboard = () => {
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">
-              Welcome back, {user?.first_name}!
+              Welcome back, {user?.firstName || 'there'}!
             </h1>
             <p className="mt-2 text-gray-600">
               Here's an overview of your recruitment activity
@@ -23,28 +65,40 @@ export const EmployerDashboard = () => {
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <Card>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-primary-600">0</div>
-              <div className="mt-2 text-sm text-gray-600">Active Jobs</div>
-            </div>
-          </Card>
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <LoadingSpinner size="lg" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-primary-600">
+                  {stats.activeJobsCount}
+                </div>
+                <div className="mt-2 text-sm text-gray-600">Active Jobs</div>
+              </div>
+            </Card>
 
-          <Card>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-green-600">0</div>
-              <div className="mt-2 text-sm text-gray-600">Total Matches</div>
-            </div>
-          </Card>
+            <Card>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-green-600">
+                  {stats.totalMatchesCount}
+                </div>
+                <div className="mt-2 text-sm text-gray-600">Total Matches</div>
+              </div>
+            </Card>
 
-          <Card>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-blue-600">0</div>
-              <div className="mt-2 text-sm text-gray-600">Candidates Contacted</div>
-            </div>
-          </Card>
-        </div>
+            <Card>
+              <div className="text-center">
+                <div className="text-4xl font-bold text-blue-600">
+                  {stats.contactedCandidatesCount}
+                </div>
+                <div className="mt-2 text-sm text-gray-600">Candidates Contacted</div>
+              </div>
+            </Card>
+          </div>
+        )}
 
         <Card title="Getting Started" subtitle="Complete these steps to start finding candidates">
           <div className="space-y-4">

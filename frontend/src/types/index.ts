@@ -19,12 +19,12 @@ export interface ApiResponse<T = any> {
 export type UserRole = 'candidate' | 'employer';
 
 export interface User {
-  user_id: string;
+  userId: string;
   email: string;
   role: UserRole;
-  first_name: string;
-  last_name: string;
-  created_at: string;
+  firstName: string;
+  lastName: string;
+  createdAt: string;
 }
 
 export interface AuthTokens {
@@ -149,6 +149,7 @@ export interface Job {
   status: JobStatus;
   views?: number;
   requiredSkillsCount?: number;
+  matchCount?: number;
   createdAt: string;
   updatedAt: string;
   expiresAt: string | null;
